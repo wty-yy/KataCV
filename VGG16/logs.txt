@@ -1,0 +1,20 @@
+2023.7.22.
+在主机上装上了Ubuntu和Windows11双系统，在Ubuntu上可以开始VGG的训练了
+try1: batch size=64，lr=1e-4，无法下降，一个epoch要70mins
+try2: batch size=128，lr=1e-4，初始loss=6.9078，一个epoch:loss=6.9071，也无法下降
+try3: batch size=96，lr=1e-5，初始loss=6.9077，loss总算开始下降了
+第一个epoch后loss=5.8244，但是在validation的时候还是内存溢出被自动kill了，尝试减小验证集的batch size大小
+将验证集batch size=32，一个epoch后loss=5.7377
+try4: 将所有的浮点数类型改为float16，初始loss为6.9062，模型大小缩小了一半只有263.9Mb，loss不下降了，还是有bug
+try5: 尝试mixed_float16混合float16类型减小模型大小，将大小减小到了291.96Mb，初始loss为6.9062，而且减少了训练时间，一个epoch只要38mins
+try6: fit结束之后无法evaluate原因应该是单次请求的内存超过了500Mb，Ubuntu系统就直接杀死了进程，我尝试通过命令 ulimit -Sv 10485760 将进程的最大虚拟内存设置为10Gb，看看能不能解决，在shell中运行最后内存仍然超了，最后竟然要22.96Gb，只能减小点Batch size试试了
+try7: 减小batch size=64，还是超内存，仍然要22.96Gb，不知道为什么
+try8: batch size=96，直接关闭验证集，从keras原理上看，进行evaluate时候模型会创建一个完全新的计算图，从而可能导致内存溢出。
+最后仍然报错溢出22.96Gb，貌似和batch size没啥关系？
+try9: 将batch size=32，看看最后会不会溢出，还是依旧溢出，并且溢出的内存仍然是22.96Gb，所以问题可能在fit函数上，明天重写fit函数，试下是否可行（在MNIST上先进行测试）
+
+2023.7.26
+try10: 使用@tf.function修饰train_step和val_step总算可以开始训练了，46mins一个epoch速度稳定，只是内存有少许增长，训练4个epochs内存溢出终止了，之保存了3个weight
+try11: 加入保存log的时间戳，从第三个epoch继续算，loss=4.84，尝试在不加入keras.backend.clean_seesion()情况下能算多少epoch
+
+

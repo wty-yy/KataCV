@@ -2,20 +2,24 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 keras = tf.keras
 layers = keras.layers
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 
 from pathlib import Path
-PATH_DATASET = Path("D:\dataset\imagenet")
+PATH_DATASET = Path("/media/wty/787C3D4C7C3D07021/dataset/imagenet")
 ds_train = tf.keras.utils.image_dataset_from_directory(PATH_DATASET.joinpath('train'), batch_size=BATCH_SIZE)
-ds_val = tf.keras.utils.image_dataset_from_directory(PATH_DATASET.joinpath('val'), batch_size=BATCH_SIZE)
+# ds_val = tf.keras.utils.image_dataset_from_directory(PATH_DATASET.joinpath('val'), batch_size=32)
 
 def conver_data(x, y):
     x = x / 255.
     y = tf.one_hot(y, depth=1000)
     return x, y
 
+tf.keras.mixed_precision.set_global_policy('mixed_float16')
+
+# ds_train = ds_train.map(conver_data, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+# ds_val = ds_val.map(conver_data, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 ds_train = ds_train.map(conver_data, num_parallel_calls=tf.data.AUTOTUNE)
-ds_val = ds_val.map(conver_data, num_parallel_calls=tf.data.AUTOTUNE)
+# ds_val = ds_val.map(conver_data, num_parallel_calls=tf.data.AUTOTUNE)
 
 data_augmentation = tf.keras.Sequential([
     layers.RandomFlip("horizontal"),
@@ -50,15 +54,15 @@ def build_model(inputs_shape=(256,256,3)):
     x = layers.MaxPool2D(2, strides=2, name='Pool5')(x)
     x = layers.Flatten(name='Flatten')(x)
     # FC
-    x = layers.Dense(4096, activation='relu', name='Dense1')(x)
-    x = layers.Dense(4096, activation='relu', name='Dense2')(x)
-    outputs = layers.Dense(1000, activation='softmax')(x)
+    x = layers.Dense(4096, activation='relu', name='Dense1', dtype='float16')(x)
+    x = layers.Dense(4096, activation='relu', name='Dense2', dtype='float16')(x)
+    outputs = layers.Dense(1000, activation='softmax', dtype='float16', name='Output')(x)
     return keras.Model(inputs, outputs)
 vgg16 = build_model()
 keras.utils.plot_model(vgg16, show_shapes=True, to_file="VGG16.png")
 vgg16.summary()
 
-vgg16.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-4), loss=keras.losses.CategoricalCrossentropy(from_logits=False),
+vgg16.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-5), loss=keras.losses.CategoricalCrossentropy(from_logits=False),
                 metrics=[keras.metrics.TopKCategoricalAccuracy(1, name="Top1"), keras.metrics.TopKCategoricalAccuracy(5, name="Top5")])
 
 import datetime
@@ -85,4 +89,5 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(
     verbose=1, 
     save_weights_only=True)
 
-vgg16.fit(ds_train, epochs=30, validation_data=ds_val, callbacks=[tensorboard_callback, cp_callback])
+# vgg16.fit(ds_train, epochs=30, validation_data=ds_val, callbacks=[tensorboard_callback, cp_callback])
+vgg16.fit(ds_train, epochs=30, callbacks=[tensorboard_callback, cp_callback])
