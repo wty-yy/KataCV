@@ -6,7 +6,7 @@ layers = keras.layers
 BATCH_SIZE = 64
 
 from pathlib import Path
-PATH_DATASET = Path("D:\dataset\imagenet")
+PATH_DATASET = Path("D:\dataset\imagenet")  # change to imagenet dataset
 ds_train = tf.keras.utils.image_dataset_from_directory(PATH_DATASET.joinpath('train'), batch_size=BATCH_SIZE)
 ds_val = tf.keras.utils.image_dataset_from_directory(PATH_DATASET.joinpath('val'), batch_size=BATCH_SIZE)
 
@@ -27,8 +27,6 @@ data_augmentation = tf.keras.Sequential([
 def build_model(inputs_shape=(256,256,3)):
     inputs = layers.Input(shape=inputs_shape, name='img')
     x = data_augmentation(inputs)
-    # x = layers.RandomFlip("horizontal", name="Flip")(inputs)
-    # x = layers.RandomCrop(227, 227, name='Crop')(x)
     x = layers.Conv2D(96, kernel_size=11, strides=4, activation='relu', name='Conv1')(inputs)
     x = layers.BatchNormalization(name='BN1')(x)
     x = layers.MaxPool2D(3, strides=2, name='Pool1')(x)
@@ -55,19 +53,17 @@ import datetime
 log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-# checkpoint_dirpath = Path.cwd().joinpath("training")
-# lastest_cp_path = tf.train.latest_checkpoint(checkpoint_dirpath)
-# if lastest_cp_path is not None:
-#     import re
-#     info = re.findall(r"cp-(\d{4})(\+\d*)?", lastest_cp_path)[0]
-#     begin_epoch = int(info[0]) + int(0 if info[1] == "" else info[1])
-#     alexnet.load_weights(lastest_cp_path)
-#     print(f"Load weight from {lastest_cp_path}.")
-#     print(f"Start from epoch {begin_epoch}")
-# else: begin_epoch = 0
-# checkpoint_path = "training/cp-{epoch:04d}+"+str(begin_epoch)+".ckpt"
-
-checkpoint_path = "training_test/cp-{epoch:04d}.ckpt"
+checkpoint_dirpath = Path.cwd().joinpath("training")
+lastest_cp_path = tf.train.latest_checkpoint(checkpoint_dirpath)
+if lastest_cp_path is not None:
+    import re
+    info = re.findall(r"cp-(\d{4})(\+\d*)?", lastest_cp_path)[0]
+    begin_epoch = int(info[0]) + int(0 if info[1] == "" else info[1])
+    alexnet.load_weights(lastest_cp_path)
+    print(f"Load weight from {lastest_cp_path}.")
+    print(f"Start from epoch {begin_epoch}")
+else: begin_epoch = 0
+checkpoint_path = "training/cp-{epoch:04d}+"+str(begin_epoch)+".ckpt"
 
 # Create a callback that saves the model's weights
 cp_callback = tf.keras.callbacks.ModelCheckpoint(
