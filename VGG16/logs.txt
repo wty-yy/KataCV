@@ -16,5 +16,8 @@ try9: 将batch size=32，看看最后会不会溢出，还是依旧溢出，并�
 2023.7.26
 try10: 使用@tf.function修饰train_step和val_step总算可以开始训练了，46mins一个epoch速度稳定，只是内存有少许增长，训练4个epochs内存溢出终止了，之保存了3个weight
 try11: 加入保存log的时间戳，从第三个epoch继续算，loss=4.84，尝试在不加入keras.backend.clean_seesion()情况下能算多少epoch
-
+2023.7.27
+不加入keras.backend.clean_seesion()已经可以正常运行了
+2023.7.29
+连续运行3天执行了90个epochs了！
 
