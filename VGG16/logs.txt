@@ -20,4 +20,6 @@ try11: 加入保存log的时间戳，从第三个epoch继续算，loss=4.84，�
 不加入keras.backend.clean_seesion()已经可以正常运行了
 2023.7.29
 连续运行3天执行了90个epochs了！
+2023.7.30
+第四天运行到118epochs了，发现loss不下降了，需要调整batch size和lr了
 
