@@ -7,13 +7,14 @@
 @Blog    : https://wty-yy.space/
 @Desc    : 
 该文件用于将dataset转化为TFRecord二进制形式，用于快速读入，需要先使用utils/make_label_json.py生成类别名称的对应编号json文件
+- 转化Imagenet2012数据集用时13:12:49，最终文件大小147GB
 '''
 import tensorflow as tf, json, argparse
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 
-path_origin_dataset = Path("/home/wty/Coding/GitHub/replicate-papers/_DEBUG/datasets/imagenet")
+path_origin_dataset = Path("/media/yy/Data/dataset/imagenet")
 path_logs = Path.cwd().joinpath("logs")
 def parse_args():
     cvt2path = lambda x: Path(x)
