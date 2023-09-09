@@ -96,19 +96,22 @@ if __name__ == '__main__':
 
     # from pathlib import Path
     args = Args(
-        path_dataset_tfrecord = "/home/wty/Coding/GitHub/replicate-papers/_DEBUG/datasets/imagenet/imagenet2012-train.tfrecord",
+        path_dataset_tfrecord = "/media/yy/Data/dataset/imagenet/imagenet2012-val.tfrecord",
         image_size = 224,
         image_center_crop_padding_size = 32,
         batch_size=128,
         shuffle_size=128*16
     )
     ds_builder = DatasetBuilder(args)
-    ds = ds_builder.get_dataset(train=True)
+    ds = ds_builder.get_dataset(train=False)
+
+    from label2readable import label2readable
+
     import matplotlib.pyplot as plt
     import time
     start_time = time.time()
     for img, label in ds.take(5):
         plt.imshow(img[0])
-        plt.title(str(label[0]))
+        plt.title(label2readable[int(label[0])])
         plt.show()
     print("used time:", time.time() - start_time)
