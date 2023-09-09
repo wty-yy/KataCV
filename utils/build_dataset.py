@@ -7,7 +7,13 @@
 @Blog    : https://wty-yy.space/
 @Desc    : 
 
-DatasetBuilder用于生成tf.data.Dataset训练集，要求传入的args至少包含以下三个参数
+DatasetBuilder用于生成tf.data.Dataset训练集，该数据的输出保证：
+1. 训练集 ds_build.get_dataset(train=True)：
+   原图像先随机裁剪为近似正方形，裁剪后面积占比范围(0.7, 1.0)，若随机裁剪失败，则使用测试集的中心裁剪
+   测试集 ds_build.get_dataset(train=False)：
+   直接按照中心进行裁剪，按照目标尺寸预留padding边界大小，按照图像最小边等比例裁剪
+2. 再缩放成固定大小(image_size,image_size,3)，uint8数据类型，对label展开成one-hot向量输出
+要求传入的args至少包含以下三个参数
 
 args = Args(
     path_dataset_tfrecord = "../datasets/imagenet/imagenet2012-train.tfrecord",
@@ -69,6 +75,8 @@ def decode_and_aug(train: bool, target_size, padding):
         else: img = get_center_crop(bytes, origin_shape, padding, target_size)
         img = tf.image.resize([img], [target_size, target_size])[0]
         img = tf.cast(img, tf.uint8)
+        img = tf.image.random_flip_left_right(img)
+        label = tf.one_hot(label, depth=1000)
         return img, label
     return thunk
 
