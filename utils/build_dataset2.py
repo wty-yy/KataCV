@@ -62,22 +62,27 @@ def decode_and_aug(train: bool, target_size, padding):
             'image': tf.io.FixedLenFeature([], tf.string),
             'label': tf.io.FixedLenFeature([], tf.int64),
         }
-        example = tf.io.parse_single_example(example, feature)
-        bytes, label = example['image'], example['label']
-        origin_shape = tf.io.extract_jpeg_shape(bytes)
-        if train:
-            img = get_random_crop(bytes, origin_shape)
-            img = tf.cond(  # if random crop failed, the return shape will be origin_shape
-                tf.equal(tf.reduce_sum(tf.cast(tf.equal(origin_shape, tf.shape(img)), tf.int32)), 3),
-                lambda: get_center_crop(bytes, origin_shape, padding, target_size),
-                lambda: img
-            )
-        else: img = get_center_crop(bytes, origin_shape, padding, target_size)
-        img = tf.image.resize([img], [target_size, target_size])[0]
-        img = tf.cast(img, tf.uint8)
-        img = tf.image.random_flip_left_right(img)
-        label = tf.one_hot(label, depth=1000)
-        return img, label
+        try:
+            example = tf.io.parse_single_example(example, feature)
+            bytes, label = example['image'], example['label']
+            origin_shape = tf.io.extract_jpeg_shape(bytes)
+            if train:
+                img = get_random_crop(bytes, origin_shape)
+                img = tf.cond(  # if random crop failed, the return shape will be origin_shape
+                    tf.equal(tf.reduce_sum(tf.cast(tf.equal(origin_shape, tf.shape(img)), tf.int32)), 3),
+                    lambda: get_center_crop(bytes, origin_shape, padding, target_size),
+                    lambda: img
+                )
+            else: img = get_center_crop(bytes, origin_shape, padding, target_size)
+            img = tf.image.resize([img], [target_size, target_size])[0]
+            img = tf.cast(img, tf.uint8)
+            img = tf.image.random_flip_left_right(img)
+            label = tf.one_hot(label, depth=1000)
+            return img, label
+        except Exception as e:
+            print("An error occurred:", e)
+            invalid_flag = tf.constant(-1)
+            return invalid_flag, invalid_flag
     return thunk
 
 from pathlib import Path
@@ -95,7 +100,15 @@ class DatasetBuilder:
             train,
             self.args.image_size,
             self.args.image_center_crop_padding_size
-        )).ignore_errors(log_warning=True).shuffle(self.args.shuffle_size).batch(self.args.batch_size, drop_remainder=True)
+        ), num_parallel_calls=tf.data.AUTOTUNE).apply(
+            tf.data.experimental.ignore_errors()
+        ).filter(
+            lambda _, y: tf.equal(tf.rank(y), tf.constant(1))
+        ).shuffle(
+            self.args.shuffle_size
+        ).batch(
+            self.args.batch_size, drop_remainder=True
+        )
         ds_size = (TRAIN_DATASET_SIZE if train else VAL_DATASET_SIZE) // self.args.batch_size
         return ds, ds_size
 

@@ -1,6 +1,5 @@
 import sys, datetime
 from pathlib import Path
-from typing import Any
 sys.path.append(str(Path.cwd()))
 
 import jax, jax.numpy as jnp
@@ -13,15 +12,20 @@ from utils.logs import Logs, MeanMetric
 
 logs = Logs(
     init_logs={
-        'loss': MeanMetric(),
-        'accuracy_top1': MeanMetric(),
-        'accuracy_top5': MeanMetric(),
+        'loss_train': MeanMetric(),
+        'accuracy_top1_train': MeanMetric(),
+        'accuracy_top5_train': MeanMetric(),
+        'loss_val': MeanMetric(),
+        'accuracy_top1_val': MeanMetric(),
+        'accuracy_top5_val': MeanMetric(),
+        'epoch': 0,
         'SPS': MeanMetric(),
         'SPS_avg': MeanMetric()
-    }
+    },
     folder2name={
-        'metrics': ['loss', 'top1_accuracy', 'top5_accuracy'],
-        'charts': ['SPS', 'SPS_average']
+        'train/metrics': ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train'],
+        'val/metrics': ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val'],
+        'charts': ['SPS', 'SPS_avg', 'epoch']
     }
 )
 
@@ -38,18 +42,22 @@ def get_args_and_writer():
         help="the path of the logs")
     parser.add_argument("--load-weights-id", type=int, default=0,
         help="if load the weights, you should pass the id of weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
-    parser.add_argument("--save_weights_freq", type=int, default=1,
+    parser.add_argument("--save-weights-freq", type=int, default=1,
         help="the frequency to save the weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
+    parser.add_argument("--val-sample-size", type=int, default=5000,
+        help="the size of the val-dataset to validate after each training epoch")
+    parser.add_argument("--write-tensorboard-freq", type=int, default=100,
+        help="the frequeny of writing the tensorboard")
     # build dataset params
-    parser.add_argument("--path-dataset-tfrecord", type=str, default=r"/media/yy/Data/dataset/imagenet",
+    parser.add_argument("--path-dataset-tfrecord", type=str, default="/media/yy/Data/dataset/imagenet/tfrecord/",
         help="the path of the dataset")
     parser.add_argument("--image-size", type=int, default=224,
         help="the image size inputs to the model")
     parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
         help="the padding size when crop the image by center")
-    parser.add_argument("--batch-size", type=int, default=128,
+    parser.add_argument("--batch-size", type=int, default=64,
         help="the batch size for training the model")
-    parser.add_argument("--shuffle-size", type=int, default=128*16,
+    parser.add_argument("--shuffle-size", type=int, default=64*16,
         help="the shuffle size of the dataset")
     # hyper-params
     parser.add_argument("--seed", type=int, default=1,
@@ -64,8 +72,9 @@ def get_args_and_writer():
     args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
     args.path_cp.mkdir(exist_ok=True)
 
+    args.val_sample_batch = args.val_sample_size // args.batch_size
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
-    args.run_name = f"{args.model_name}__{args.seed}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+    args.run_name = f"{args.model_name}__{args.seed}__load_id_{args.load_weights_id}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     if args.wandb_track:
         import wandb
         wandb.init(
@@ -137,19 +146,23 @@ if __name__ == '__main__':
     
     from utils.build_dataset import DatasetBuilder
     ds_builder = DatasetBuilder(args)
-    train_ds = ds_builder.get_dataset(train=True)
-    val_ds = ds_builder.get_dataset(train=False)
+    train_ds, train_ds_size = ds_builder.get_dataset(train=True)
+    val_ds, val_ds_size = ds_builder.get_dataset(train=False)
 
-    @jax.jit
-    def train_step(state: TrainState, x, y):
+    from functools import partial
+    @partial(jax.jit, static_argnames='train')
+    def model_step(state: TrainState, x, y, train: bool = True):
 
         def loss_fn(params, x, y):
             logits = state.apply_fn(params, x)
             loss = -(y * jax.nn.log_softmax(logits)).sum(-1)
             return loss.mean(), logits
         
-        (loss, logits), grads = jax.value_and_grad(loss_fn)(state.params, x, y)
-        state = state.apply_gradients(grads)
+        if train:
+            (loss, logits), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params, x, y)
+            state = state.apply_gradients(grads=grads)
+        else:
+            loss, logits = loss_fn(state.params, x, y)
 
         y_cat = jnp.argmax(y, -1)
         top1 = (jnp.argmax(logits, -1) == y_cat).mean()
@@ -162,19 +175,39 @@ if __name__ == '__main__':
     from tqdm import tqdm
 
     start_time, global_step = time.time(), 0
-    for epoch in range(args.total_epochs):
-        print(f"epoch: {epoch+1}/{args.total_epochs}")
+    for epoch in range(1,args.total_epochs+1):
+        print(f"epoch: {epoch}/{args.total_epochs}")
         logs.reset()
-
-        for x, y in tqdm(train_ds):
-            logs.start_time = time.time()
+        print("training...")
+        for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
+        # for x, y in tqdm(train_ds.take(300), total=300, desc="Processing"):
             global_step += 1
-            state, *metrics = train_step(state, x, y)
+            state, *metrics = model_step(state, x.numpy(), y.numpy())
             logs.update(
-                ['loss', 'accuracy_top1', 'accuracy_top5', 'SPS', 'SPS_avg'],
-                metrics + [int(logs.get_time_length()), int(global_step/(time.time()-start_time))]
+                ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train', 'SPS', 'SPS_avg'],
+                metrics
             )
-            logs.writer_tensorboard(writer, global_step)
+            if global_step % args.write_tensorboard_freq == 0:
+                logs.update(
+                    ['SPS', 'SPS_avg', 'epoch'],
+                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
+                )
+                logs.start_time = time.time()
+                logs.writer_tensorboard(writer, global_step)
+
+        logs.reset()
+        print("validating...")
+        for x, y in tqdm(
+            train_ds.take(args.val_sample_batch),
+            total=args.val_sample_batch,
+            desc="Processing"
+        ):
+            state, *metrics = model_step(state, x.numpy(), y.numpy())
+            logs.update(
+                ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val', 'epoch'],
+                metrics + [epoch]
+            )
+        logs.writer_tensorboard(writer, global_step)
 
         if epoch % args.save_weights_freq == 0:
             path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
