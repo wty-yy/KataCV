@@ -20,7 +20,7 @@ from pathlib import Path
 import json, argparse
 from pathlib import Path
 
-path_origin_dataset = Path("/home/wty/Coding/GitHub/replicate-papers/_DEBUG/datasets/imagenet")
+path_origin_dataset = Path("/media/yy/Data/dataset/imagenet")
 path_logs = Path.cwd().joinpath("logs")
 
 def write_json(path, obj):
