@@ -52,7 +52,7 @@ if __name__ == '__main__':
         nameid2label[dir.name] = label_count
         label2nameid[label_count] = dir.name
         label_count += 1
-    print(f"Find {label_count} class, start writing json...")
+    print(f"Find {label_count} class, start writing json in folder: '{str(args.path_logs)}'")
     write_json(args.path_logs.joinpath("nameid2label.json"), nameid2label)
     write_json(args.path_logs.joinpath("label2nameid.json"), label2nameid)
     print("Finish!")

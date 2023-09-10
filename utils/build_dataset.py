@@ -81,42 +81,46 @@ def decode_and_aug(train: bool, target_size, padding):
     return thunk
 
 from pathlib import Path
-TRAIN_DATASET_SIZE = 1281167
-VAL_DATASET_SIZE = 50000
+DATASET_SIZE = {
+    'train': 1281167,
+    'val': 50000
+}
 class DatasetBuilder:
     
     def __init__(self, args: NamedTuple):
         self.args = args
         self.path = Path(str(args.path_dataset_tfrecord))
 
-    def get_dataset(self, train=True):
-        ds_tfrecord = tf.data.TFRecordDataset(str(self.path.joinpath(f"imagenet2012-{'train' if train else 'val'}.tfrecord")))
+    def get_dataset(self, sub_dataset='train'):
+        ds_tfrecord = tf.data.TFRecordDataset(str(self.path.joinpath(f"imagenet2012-{sub_dataset}.tfrecord")))
         ds = ds_tfrecord.map(decode_and_aug(
-            train,
+            True if sub_dataset == 'train' else False,
             self.args.image_size,
             self.args.image_center_crop_padding_size
         )).ignore_errors(log_warning=True).shuffle(self.args.shuffle_size).batch(self.args.batch_size, drop_remainder=True)
-        ds_size = (TRAIN_DATASET_SIZE if train else VAL_DATASET_SIZE) // self.args.batch_size
+        ds_size = DATASET_SIZE[sub_dataset] // self.args.batch_size
         return ds, ds_size
 
 if __name__ == '__main__':
-    class Args(NamedTuple):
-        path_dataset_tfrecord: str
-        image_size: int
-        image_center_crop_padding_size: int
-        batch_size: int
-        shuffle_size: int
+    print("Sample from the tfrecord.")
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path-dataset-tfrecord", type=str, default="/media/yy/Data/dataset/imagenet/",
+        help="the path of the tfrecord dataset directory")
+    parser.add_argument("--image-size", type=int, default=224,
+        help="the input image size of the model")
+    parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
+        help="the padding size of the center crop of the origin image")
+    parser.add_argument("--batch-size", type=int, default=32,
+        help="the size of each batch")
+    parser.add_argument("--shuffle-size", type=int, default=32*16,
+        help="the shuffle size of the dataset")
+    parser.add_argument("--sub-dataset", type=str, default='train',
+        help="the sub-dataset of the dataset (train/val)")
+    args = parser.parse_args()
 
-    # from pathlib import Path
-    args = Args(
-        path_dataset_tfrecord = "/media/yy/Data/dataset/imagenet/",
-        image_size = 224,
-        image_center_crop_padding_size = 32,
-        batch_size=128,
-        shuffle_size=128*16
-    )
     ds_builder = DatasetBuilder(args)
-    ds, ds_size = ds_builder.get_dataset(train=True)
+    ds, ds_size = ds_builder.get_dataset(sub_dataset=args.sub_dataset)
     print("dataset size:", ds_size)
 
     from label2readable import label2readable
