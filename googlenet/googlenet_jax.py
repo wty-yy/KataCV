@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : googlenet_jax.py
+@Time    : 2023/09/10 21:34:18
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+2023.9.10: 完成googlenet(Inception-v1)框架
+'''
+
+if __name__ == '__main__':
+    pass
+
 import sys, datetime
 from pathlib import Path
 sys.path.append(str(Path.cwd()))
