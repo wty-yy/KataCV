@@ -6,7 +6,8 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
-2023.9.10: 完成googlenet(Inception-v1)框架
+2023/09/10: 完成googlenet(Inception-v1)框架
+2023/09/11: 开始googlenet训练
 '''
 
 if __name__ == '__main__':
@@ -58,7 +59,7 @@ def get_args_and_writer():
         help="if load the weights, you should pass the id of weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
     parser.add_argument("--save-weights-freq", type=int, default=1,
         help="the frequency to save the weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
-    parser.add_argument("--val-sample-size", type=int, default=5000,
+    parser.add_argument("--val-sample-size", type=int, default=50000,
         help="the size of the val-dataset to validate after each training epoch")
     parser.add_argument("--write-tensorboard-freq", type=int, default=100,
         help="the frequeny of writing the tensorboard")
@@ -69,16 +70,16 @@ def get_args_and_writer():
         help="the image size inputs to the model")
     parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
         help="the padding size when crop the image by center")
-    parser.add_argument("--batch-size", type=int, default=64,
+    parser.add_argument("--batch-size", type=int, default=128,
         help="the batch size for training the model")
-    parser.add_argument("--shuffle-size", type=int, default=64*16,
+    parser.add_argument("--shuffle-size", type=int, default=128*16,
         help="the shuffle size of the dataset")
     # hyper-params
     parser.add_argument("--seed", type=int, default=1,
         help="the seed for initalizing the model")
     parser.add_argument("--total-epochs", type=int, default=20,
         help="the total epochs of the training")
-    parser.add_argument("--learning-rate", type=float, default=1e-5,
+    parser.add_argument("--learning-rate", type=float, default=1e-3,
         help="the learning rate of the adam")
     args = parser.parse_args()
 
@@ -267,7 +268,7 @@ if __name__ == '__main__':
         logs.reset()
         print("validating...")
         for x, y in tqdm(
-            train_ds.take(args.val_sample_batch),
+            val_ds.take(args.val_sample_batch),
             total=args.val_sample_batch,
             desc="Processing"
         ):
