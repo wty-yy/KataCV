@@ -89,7 +89,7 @@ def get_args_and_writer():
 
     args.val_sample_batch = args.val_sample_size // args.batch_size
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
-    args.run_name = f"{args.model_name}__loadid_{args.load_weights_id}__lr_{args.learning_rate}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+    args.run_name = f"{args.model_name}__load_{args.load_weights_id}__lr_{args.learning_rate}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     if args.wandb_track:
         import wandb
         wandb.init(
