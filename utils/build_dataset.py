@@ -40,7 +40,7 @@ def get_random_crop(bytes, shape):
         bounding_boxes=tf.reshape([0.0, 0.0, 1.0, 1.0], shape=[1, 1, 4]),
         min_object_covered=0.1,
         aspect_ratio_range=(3/4, 4/3),
-        area_range=(0.7, 1.0),
+        area_range=(0.08, 1.0),
         max_attempts=10
     )
     offset = bbox.begin[:2]

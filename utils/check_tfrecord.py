@@ -7,6 +7,10 @@
 @Blog    : https://wty-yy.space/
 @Desc    : 
 对translate_tf_record.py保存好的tfrecord进行文件检查，并统计完好图片数目
+
+Imagenet2012 数据集大小分别为:
+train: 1281167
+val: 50000
 '''
 
 if __name__ == '__main__':
@@ -17,7 +21,7 @@ from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 
-path_origin_tfrecord = Path("/media/yy/Data/dataset/imagenet")
+path_origin_tfrecord = Path("/media/yy/Data/dataset/imagenet/tfrecord")
 path_logs = Path.cwd().joinpath("logs")
 def parse_args():
     cvt2path = lambda x: Path(x)

@@ -31,7 +31,7 @@ def parse_args():
         help="the seed for shuffle the images' order")
     args = parser.parse_args()
     args.path_subdataset = args.path_origin_dataset.joinpath(args.subfolder_name)
-    args.path_tfrecord = args.path_origin_dataset.joinpath(f"imagenet2012-{args.subfolder_name}-origin.tfrecord")
+    args.path_tfrecord = args.path_origin_dataset.joinpath(f"tfrecord/imagenet2012-{args.subfolder_name}-origin.tfrecord")
     assert(args.path_logs.exists())
     assert(args.path_origin_dataset.exists())
     assert(args.path_subdataset.exists())
