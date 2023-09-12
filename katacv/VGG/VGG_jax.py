@@ -26,7 +26,7 @@ from flax.training import train_state
 import optax
 from tensorboardX import SummaryWriter
 from argparse import ArgumentParser
-from utils.logs import Logs, MeanMetric
+from katacv.utils.logs import Logs, MeanMetric
 
 logs = Logs(
     init_logs={
@@ -282,7 +282,7 @@ if __name__ == '__main__':
         print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
         input()
     
-    from utils.build_dataset import DatasetBuilder
+    from katacv.utils.imagenet.build_dataset import DatasetBuilder
     ds_builder = DatasetBuilder(args)
     train_ds, train_ds_size = ds_builder.get_dataset(sub_dataset='train')
     val_ds, val_ds_size = ds_builder.get_dataset(sub_dataset='val')
