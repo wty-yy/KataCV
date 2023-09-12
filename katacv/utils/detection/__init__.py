@@ -15,8 +15,14 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
     w = int(shape[1] * params[2])
     h = int(shape[0] * params[3])
     rect = patches.Rectangle((x_min, y_min), w, h, linewidth=2, edgecolor='r', facecolor='none')
-    ax.scatter(int(shape[1] * params[0]), int(shape[0] * params[1]), color='yellow', s=100)
+    ax.scatter(int(shape[1] * params[0]), int(shape[0] * params[1]), color='yellow', s=50)
     ax.add_patch(rect)
     bbox_props = dict(boxstyle="round, pad=0.2", edgecolor='red', facecolor='red')
     if len(text) != 0:
         ax.text(x_min+2, y_min, text, color='white', backgroundcolor='red', va='bottom', ha='left', fontsize=8, bbox=bbox_props)
+
+def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
+    x_size, y_size = int(image_shape[1] / S), int(image_shape[0] / S)
+    for i in range(1,S):
+        ax.plot([i*x_size, i*x_size], [0, image_shape[0]], c='b')
+        ax.plot([0, image_shape[1]], [i*y_size, i*y_size], c='b')

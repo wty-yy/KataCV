@@ -94,17 +94,29 @@ if __name__ == '__main__':
 
     ds_builder = VOCBuilder(args)
     ds = ds_builder.get_dataset("val")
-    from katacv.utils.detection import plot_box
-    import time
+
+    from katacv.utils.detection import plot_box, plot_cells
+    import time, numpy as np
     start_time = time.time()
     import matplotlib.pyplot as plt
     from label2realname import label2realname
     from tqdm import tqdm
+
+    S = args.split_size
     for image, label in tqdm(ds):
         # TODO: 验证label是否正确
         fig, ax = plt.subplots()
         ax.imshow(image)
-        for i in range(len(label)):
-            plot_box(ax, image.shape, params[i], label2realname[int(labels[i].numpy())])
+        label = label.numpy()
+        for i in range(S):
+            for j in range(S):
+                if label[i,j,20] == 1:
+                    cat = np.argmax(label[i,j,:20])
+                    features = label[i,j]
+                    x, y = (features[21]+j)/S, (features[22]+i)/S
+                    text = f"{label2realname[cat]} ({i},{j})"
+                    plot_box(ax, image.shape, (x, y, features[23], features[24]), text)
+        plot_cells(ax, image.shape, S)
+        plt.savefig("test_build_dataset.jpg", dpi=200)
         plt.show()
     print("used time:", time.time() - start_time)

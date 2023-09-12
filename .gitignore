@@ -3,3 +3,4 @@ _DEBUG
 logs
 wandb
 old
+test*
