@@ -63,7 +63,7 @@ class Darknet(nn.Module):
 class Yolov1PreModel(nn.Module):
     @nn.compact
     def __call__(self, x, train: bool = True):
-        x = Darknet()(x)
+        x = Darknet()(x, train)
         x = nn.avg_pool(x, (7,7))
         x = x.reshape(x.shape[0], -1)
         x = nn.Dropout(0.4, deterministic=not train)(x)
