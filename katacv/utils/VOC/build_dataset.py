@@ -14,8 +14,8 @@ train.csv和val.csv为训练集/验证集的对应图像和标签（这里我自
 标签格式: 总计n行，第i行包含五元组，每个元素表示含义为：
 (class, x, y, w, h)，其中class为类别标签(总计20个类别)，x,y,w,h均为相对于整个图片的比例
 
-train: 16551, 读取用时117s
-val: 4952, 读取用时25s
+train: 16551, 纯读取用时117s，resize+aug+cell_label用时117s
+val: 4952, 纯读取用时25s，resize+aug+cell_label用时33s
 '''
 from pathlib import Path
 from typing import NamedTuple
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ds_builder = VOCBuilder(args)
-    ds = ds_builder.get_dataset("val")
+    ds = ds_builder.get_dataset("train")
 
     from katacv.utils.detection import plot_box, plot_cells
     import time, numpy as np
@@ -104,7 +104,8 @@ if __name__ == '__main__':
 
     S = args.split_size
     for image, label in tqdm(ds):
-        # TODO: 验证label是否正确
+        continue
+        # TODO: 验证label是否正确 OK
         fig, ax = plt.subplots()
         ax.imshow(image)
         label = label.numpy()
