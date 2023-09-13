@@ -1,25 +1,72 @@
-# -*- coding: utf-8 -*-
-'''
-@File    : googlenet_jax.py
-@Time    : 2023/09/10 21:34:18
-@Author  : wty-yy
-@Version : 1.0
-@Blog    : https://wty-yy.space/
-@Desc    : 
-2023/09/10: 完成googlenet(Inception-v1)框架
-2023/09/11: 开始googlenet训练
-2023/09/12: 训练到50个epochs
-'''
-import sys, datetime
-from pathlib import Path
-sys.path.append(str(Path.cwd()))
-
+from typing import Callable, Any
 import jax, jax.numpy as jnp
 import flax, flax.linen as nn
 from flax.training import train_state
 import optax
-from tensorboardX import SummaryWriter
-from argparse import ArgumentParser
+from katacv.utils.imagenet.build_dataset import ImagenetBuilder
+
+ModuleDef = Any
+
+class ConvBlock(nn.Module):
+    features: int
+    kernel_size: tuple[int]
+    activation: Callable
+    norm: ModuleDef
+    strides: tuple[int] = (1, 1)
+    padding: str | tuple = 'SAME'
+
+    @nn.compact
+    def __call__(self, x):
+        x = nn.Conv(self.features, self.kernel_size, self.strides, self.padding)(x)
+        x = self.norm()(x)
+        # x = nn.BatchNorm(use_running_average=not train)(x)
+        x = self.activation(x)
+        return x
+
+from functools import partial
+class Darknet(nn.Module):
+    conv=ConvBlock
+    max_pool=lambda _, x: nn.max_pool(x, (2, 2), strides=(2, 2))
+    activation=lambda _, x: nn.leaky_relu(x, negative_slope=0.1)
+
+    @nn.compact
+    def __call__(self, x, train: bool = True):  # (N,224,224,3)
+        norm = partial(nn.BatchNorm, use_running_average=not train)
+        conv = partial(self.conv, activation=self.activation, norm=norm)
+        x = conv(features=64, kernel_size=(7,7), strides=(2,2), padding=((3,3),(3,3)))(x)
+        x = self.max_pool(x)
+        x = conv(features=192, kernel_size=(3,3))(x)
+        x = self.max_pool(x)
+
+        x = conv(features=128, kernel_size=(1,1))(x)
+        x = conv(features=256, kernel_size=(3,3))(x)
+        x = conv(features=256, kernel_size=(1,1))(x)
+        x = conv(features=512, kernel_size=(3,3))(x)
+        x = self.max_pool(x)
+
+        for _ in range(4):
+            x = conv(features=256, kernel_size=(1,1))(x)
+            x = conv(features=512, kernel_size=(3,3))(x)
+        x = conv(features=512, kernel_size=(1,1))(x)
+        x = conv(features=1024, kernel_size=(3,3))(x)
+        x = self.max_pool(x)
+        
+        for _ in range(2):
+            x = conv(features=512, kernel_size=(1,1))(x)
+            x = conv(features=1024, kernel_size=(3,3))(x)
+        
+        return x
+
+class Yolov1PreModel(nn.Module):
+    @nn.compact
+    def __call__(self, x, train: bool = True):
+        x = Darknet()(x)
+        x = nn.avg_pool(x, (7,7))
+        x = x.reshape(x.shape[0], -1)
+        x = nn.Dropout(0.4, deterministic=not train)(x)
+        x = nn.Dense(1000)(x)
+        return x
+
 from katacv.utils.logs import Logs, MeanMetric
 
 logs = Logs(
@@ -42,51 +89,53 @@ logs = Logs(
 )
 
 def get_args_and_writer():
+    import argparse, datetime
+    from tensorboardX import SummaryWriter
+    from pathlib import Path
     cvt2Path = lambda x: Path(x)
     str2bool = lambda x: x in ['yes', 'y', 'True', '1']
-    parser = ArgumentParser()
-    parser.add_argument("--model-name", type=str, default="GoogleNet",
+    parser = argparse.ArgumentParser()
+    # Imagenet dataset
+    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
+        help="the path of the tfrecord dataset directory")
+    parser.add_argument("--image-size", type=int, default=224,
+        help="the input image size of the model")
+    parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
+        help="the padding size of the center crop of the origin image")
+    parser.add_argument("--batch-size", type=int, default=128,
+        help="the size of each batch")
+    parser.add_argument("--shuffle-size", type=int, default=128*16,
+        help="the shuffle size of the dataset")
+    # Commen
+    parser.add_argument("--model-name", type=str, default="YoloV1PreTrain",
         help="the name of the model")
     parser.add_argument("--wandb-track", type=str2bool, default=False, const=True, nargs='?',
         help="if taggled, track with wandb")
     parser.add_argument("--wandb-project-name", type=str, default="Imagenet2012")
     parser.add_argument("--path-logs", type=cvt2Path, default=Path.cwd().joinpath("logs"),
         help="the path of the logs")
-    parser.add_argument("--load-weights-id", type=int, default=0,
+    parser.add_argument("--write-tensorboard-freq", type=int, default=100,
+        help="the frequeny of writing the tensorboard")
+    # Model weights
+    parser.add_argument("--load-id", type=int, default=0,
         help="if load the weights, you should pass the id of weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
     parser.add_argument("--save-weights-freq", type=int, default=1,
         help="the frequency to save the weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
-    parser.add_argument("--val-sample-size", type=int, default=50000,
-        help="the size of the val-dataset to validate after each training epoch")
-    parser.add_argument("--write-tensorboard-freq", type=int, default=100,
-        help="the frequeny of writing the tensorboard")
-    # build dataset params
-    parser.add_argument("--path-dataset-tfrecord", type=str, default="/media/yy/Data/dataset/imagenet/tfrecord/",
-        help="the path of the dataset")
-    parser.add_argument("--image-size", type=int, default=224,
-        help="the image size inputs to the model")
-    parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
-        help="the padding size when crop the image by center")
-    parser.add_argument("--batch-size", type=int, default=128,
-        help="the batch size for training the model")
-    parser.add_argument("--shuffle-size", type=int, default=128*16,
-        help="the shuffle size of the dataset")
-    # hyper-params
-    parser.add_argument("--seed", type=int, default=1,
+    # Hyper-parameters
+    parser.add_argument("--seed", type=int, default=0,
         help="the seed for initalizing the model")
-    parser.add_argument("--total-epochs", type=int, default=20,
+    parser.add_argument("--total-epochs", type=int, default=40,
         help="the total epochs of the training")
     parser.add_argument("--learning-rate", type=float, default=1e-3,
-        help="the learning rate of the adam")
+        help="the learning rate of the optimizer")
     args = parser.parse_args()
 
     args.path_logs.mkdir(exist_ok=True)
     args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
     args.path_cp.mkdir(exist_ok=True)
 
-    args.val_sample_batch = args.val_sample_size // args.batch_size
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
-    args.run_name = f"{args.model_name}__load_{args.load_weights_id}__lr_{args.learning_rate}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+    args.run_name = f"{args.model_name}__load_{args.load_weights_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     if args.wandb_track:
         import wandb
         wandb.init(
@@ -103,77 +152,9 @@ def get_args_and_writer():
     )
     return args, writer
 
-class Inception(nn.Module):
-    conv1x1: int
-    conv3x3: tuple[int]
-    conv5x5: tuple[int]
-    pool1x1: int
-
-    @nn.compact
-    def __call__(self, x):  # nn.Conv default padding is 'SAME'
-        path1 = nn.relu(nn.Conv(self.conv1x1, (1, 1))(x))
-        path2 = nn.relu(nn.Conv(self.conv3x3[0], (1, 1))(x))
-        path2 = nn.relu(nn.Conv(self.conv3x3[1], (3, 3))(path2))
-        path3 = nn.relu(nn.Conv(self.conv5x5[0], (1, 1))(x))
-        path3 = nn.relu(nn.Conv(self.conv5x5[1], (5, 5))(path3))
-        path4 = nn.max_pool(x, (3, 3), strides=(1, 1), padding='SAME')
-        path4 = nn.relu(nn.Conv(self.pool1x1, kernel_size=(1, 1))(path4))
-        return jnp.concatenate([path1, path2, path3, path4], axis=-1)
-
-class AuxilliaryOutput(nn.Module):
-    
-    @nn.compact
-    def __call__(self, x, train):
-        x = nn.avg_pool(x, (5, 5), strides=(3, 3))
-        x = nn.relu(nn.Conv(128, (1, 1))(x))
-        x = x.reshape(x.shape[0], -1)
-        x = nn.relu(nn.Dense(1024)(x))
-        x = nn.Dropout(0.7, deterministic=not train)(x)
-        x = nn.Dense(1000)(x)
-        return x
-
-class GoogleNet(nn.Module):
-    """Inception-v1"""
-
-    @nn.compact
-    def __call__(self, x, train: bool = True):
-        x = x / 255.0
-        x = nn.relu(nn.Conv(64, (7, 7), strides=2)(x))
-        x = nn.max_pool(x, (3, 3), strides=(2, 2), padding=((1, 1), (1, 1)))
-        x = nn.BatchNorm(use_running_average=not train)(x)
-        x = nn.relu(nn.Conv(64, (1, 1))(x))
-        x = nn.relu(nn.Conv(192, (3, 3))(x))
-        x = nn.BatchNorm(use_running_average=not train)(x)
-        x = nn.max_pool(x, (3, 3), strides=(2, 2), padding=((1, 1), (1, 1)))
-        x = Inception(conv1x1=64, conv3x3=(96, 128), conv5x5=(16, 32), pool1x1=32)(x)
-        x = Inception(conv1x1=128, conv3x3=(128, 192), conv5x5=(32, 96), pool1x1=64)(x)
-        x = nn.max_pool(x, (3, 3), strides=(2, 2), padding=((1, 1), (1, 1)))
-        x = Inception(conv1x1=192, conv3x3=(96, 208), conv5x5=(16, 48), pool1x1=64)(x)
-
-        out1 = AuxilliaryOutput()(x, train)
-
-        x = Inception(conv1x1=160, conv3x3=(112, 224), conv5x5=(24, 64), pool1x1=64)(x)
-        x = Inception(conv1x1=128, conv3x3=(128, 256), conv5x5=(24, 64), pool1x1=64)(x)
-        x = Inception(conv1x1=112, conv3x3=(144, 288), conv5x5=(32, 64), pool1x1=64)(x)
-
-        out2 = AuxilliaryOutput()(x, train)
-
-        x = Inception(conv1x1=256, conv3x3=(160, 320), conv5x5=(32, 128), pool1x1=128)(x)
-        x = nn.max_pool(x, (3, 3), strides=(2, 2), padding=((1, 1), (1, 1)))
-        x = Inception(conv1x1=256, conv3x3=(160, 320), conv5x5=(32, 128), pool1x1=128)(x)
-        x = Inception(conv1x1=384, conv3x3=(192, 384), conv5x5=(48, 128), pool1x1=128)(x)
-
-        x = nn.avg_pool(x, (7, 7), strides=(1, 1))
-        x = x.reshape(x.shape[0], -1)
-        x = nn.Dropout(0.4, deterministic=not train)(x)
-        out3 = nn.Dense(1000)(x)
-
-        return [out1, out2, out3]
-
-
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
-    model = GoogleNet()
+    model = Yolov1PreModel()
     key = jax.random.PRNGKey(args.seed)
     print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
 
@@ -187,9 +168,9 @@ if __name__ == '__main__':
         params=variables['params'],
         tx=optax.adam(learning_rate=args.learning_rate),
         batch_stats=variables['batch_stats'],
-        dropout_key=jax.random.PRNGKey(args.seed),
+        dropout_key=key
     )
-    
+
     save_id = args.load_weights_id + 1
     if save_id > 1:  # load_weights_id > 0
         load_path = args.path_cp.joinpath(f"{args.model_name}-{save_id-1:04}")
@@ -213,16 +194,14 @@ if __name__ == '__main__':
     def model_step(state: TrainState, x, y, train: bool = True):
 
         def loss_fn(params):
-            logits_list, updates = state.apply_fn(
+            logits, updates = state.apply_fn(
                 {'params': params, 'batch_stats': state.batch_stats},
                 x, train=train,
                 mutable=['batch_stats'],
                 rngs={'dropout': jax.random.fold_in(state.dropout_key, state.step)}
             )
-            loss = 0
-            for logits, coef in zip(logits_list, (0.3, 0.3, 1.0)):
-                loss += -(y * jax.nn.log_softmax(logits)).sum(-1) * coef
-            return loss.mean(), (logits, updates)
+            loss = -(y * jax.nn.log_softmax(logits)).sum(-1).mean()
+            return loss, (logits, updates)
         
         if train:
             (loss, (logits, updates)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)

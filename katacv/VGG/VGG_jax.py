@@ -282,8 +282,8 @@ if __name__ == '__main__':
         print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
         input()
     
-    from katacv.utils.imagenet.build_dataset import DatasetBuilder
-    ds_builder = DatasetBuilder(args)
+    from katacv.utils.imagenet.build_dataset import ImagenetBuilder
+    ds_builder = ImagenetBuilder(args)
     train_ds, train_ds_size = ds_builder.get_dataset(sub_dataset='train')
     val_ds, val_ds_size = ds_builder.get_dataset(sub_dataset='val')
 

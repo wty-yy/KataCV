@@ -85,7 +85,7 @@ DATASET_SIZE = {
     'train': 1281167,
     'val': 50000
 }
-class DatasetBuilder:
+class ImagenetBuilder:
     
     def __init__(self, args: NamedTuple):
         self.args = args
@@ -104,8 +104,10 @@ class DatasetBuilder:
 if __name__ == '__main__':
     print("Sample from the tfrecord.")
     import argparse
+    from pathlib import Path
+    cvt2Path = lambda x: Path(x)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path-dataset-tfrecord", type=str, default="/media/yy/Data/dataset/imagenet/",
+    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
         help="the path of the tfrecord dataset directory")
     parser.add_argument("--image-size", type=int, default=224,
         help="the input image size of the model")
@@ -119,7 +121,7 @@ if __name__ == '__main__':
         help="the sub-dataset of the dataset (train/val)")
     args = parser.parse_args()
 
-    ds_builder = DatasetBuilder(args)
+    ds_builder = ImagenetBuilder(args)
     ds, ds_size = ds_builder.get_dataset(sub_dataset=args.sub_dataset)
     print("dataset size:", ds_size)
 
