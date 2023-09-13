@@ -8,11 +8,8 @@
 @Desc    : 
 2023/09/10: 完成googlenet(Inception-v1)框架
 2023/09/11: 开始googlenet训练
+2023/09/12: 训练到50个epochs
 '''
-
-if __name__ == '__main__':
-    pass
-
 import sys, datetime
 from pathlib import Path
 sys.path.append(str(Path.cwd()))
