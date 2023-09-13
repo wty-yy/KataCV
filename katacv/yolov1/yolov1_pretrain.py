@@ -1,3 +1,6 @@
+import sys, os
+sys.path.append(os.getcwd())
+
 from typing import Callable, Any
 import jax, jax.numpy as jnp
 import flax, flax.linen as nn
@@ -92,15 +95,15 @@ def get_args_and_writer():
     from katacv.utils.parser import Parser, Path, cvt2Path
     parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
     # Imagenet dataset
-    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
+    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
         help="the path of the tfrecord dataset directory")
     parser.add_argument("--image-size", type=int, default=224,
         help="the input image size of the model")
     parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
         help="the padding size of the center crop of the origin image")
-    parser.add_argument("--batch-size", type=int, default=128,
+    parser.add_argument("--batch-size", type=int, default=256,
         help="the size of each batch")
-    parser.add_argument("--shuffle-size", type=int, default=128*16,
+    parser.add_argument("--shuffle-size", type=int, default=256*16,
         help="the shuffle size of the dataset")
     args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)

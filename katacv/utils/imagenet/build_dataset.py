@@ -92,7 +92,9 @@ class ImagenetBuilder:
         self.path = Path(str(args.path_dataset_tfrecord))
 
     def get_dataset(self, sub_dataset='train'):
-        ds_tfrecord = tf.data.TFRecordDataset(str(self.path.joinpath(f"imagenet2012-{sub_dataset}.tfrecord")))
+        path = self.path.joinpath(f"imagenet2012-{sub_dataset}.tfrecord")
+        assert(path.exists())
+        ds_tfrecord = tf.data.TFRecordDataset(str(path))
         ds = ds_tfrecord.map(decode_and_aug(
             True if sub_dataset == 'train' else False,
             self.args.image_size,
