@@ -89,12 +89,8 @@ logs = Logs(
 )
 
 def get_args_and_writer():
-    import argparse, datetime
-    from tensorboardX import SummaryWriter
-    from pathlib import Path
-    cvt2Path = lambda x: Path(x)
-    str2bool = lambda x: x in ['yes', 'y', 'True', '1']
-    parser = argparse.ArgumentParser()
+    from katacv.utils.parser import Parser, Path, cvt2Path
+    parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
         help="the path of the tfrecord dataset directory")
@@ -106,50 +102,8 @@ def get_args_and_writer():
         help="the size of each batch")
     parser.add_argument("--shuffle-size", type=int, default=128*16,
         help="the shuffle size of the dataset")
-    # Commen
-    parser.add_argument("--model-name", type=str, default="YoloV1PreTrain",
-        help="the name of the model")
-    parser.add_argument("--wandb-track", type=str2bool, default=False, const=True, nargs='?',
-        help="if taggled, track with wandb")
-    parser.add_argument("--wandb-project-name", type=str, default="Imagenet2012")
-    parser.add_argument("--path-logs", type=cvt2Path, default=Path.cwd().joinpath("logs"),
-        help="the path of the logs")
-    parser.add_argument("--write-tensorboard-freq", type=int, default=100,
-        help="the frequeny of writing the tensorboard")
-    # Model weights
-    parser.add_argument("--load-id", type=int, default=0,
-        help="if load the weights, you should pass the id of weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
-    parser.add_argument("--save-weights-freq", type=int, default=1,
-        help="the frequency to save the weights in './logs/{model_name}-checkpoints/{model_name}-{id:04}'")
-    # Hyper-parameters
-    parser.add_argument("--seed", type=int, default=0,
-        help="the seed for initalizing the model")
-    parser.add_argument("--total-epochs", type=int, default=40,
-        help="the total epochs of the training")
-    parser.add_argument("--learning-rate", type=float, default=1e-3,
-        help="the learning rate of the optimizer")
-    args = parser.parse_args()
-
-    args.path_logs.mkdir(exist_ok=True)
-    args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
-    args.path_cp.mkdir(exist_ok=True)
-
+    args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
-    args.run_name = f"{args.model_name}__load_{args.load_weights_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
-    if args.wandb_track:
-        import wandb
-        wandb.init(
-            project=args.wandb_project_name,
-            sync_tensorboard=True,
-            config=vars(args),
-            name=args.run_name,
-            save_code=True,
-        )
-    writer = SummaryWriter(args.path_logs.joinpath(args.run_name))
-    writer.add_text(
-        "hyper-parameters",
-        "|param|value|\n|-|-|\n%s" % ('\n'.join([f"|{key}|{value}|" for key, value in vars(args).items()]))
-    )
     return args, writer
 
 if __name__ == '__main__':
@@ -171,8 +125,8 @@ if __name__ == '__main__':
         dropout_key=key
     )
 
-    save_id = args.load_weights_id + 1
-    if save_id > 1:  # load_weights_id > 0
+    save_id = args.load_id + 1
+    if save_id > 1:  # load_id > 0
         load_path = args.path_cp.joinpath(f"{args.model_name}-{save_id-1:04}")
         assert(load_path.exists())
         with open(load_path, 'rb') as file:
