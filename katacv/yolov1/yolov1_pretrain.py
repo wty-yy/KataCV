@@ -92,7 +92,7 @@ logs = Logs(
 )
 
 def get_args_and_writer():
-    from katacv.utils.parser import Parser, Path, cvt2Path
+    from katacv.utils.parser import Parser, Path, cvt2Path, str2bool
     parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
@@ -105,19 +105,54 @@ def get_args_and_writer():
         help="the size of each batch")
     parser.add_argument("--shuffle-size", type=int, default=256*16,
         help="the shuffle size of the dataset")
+    parser.add_argument("--train", type=str2bool, default=False, const=True, nargs='?',
+        help="if taggled, start training the model")
+    parser.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
+        help="if taggled, start evaluating the model")
+    
     args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
+    if args.train and args.evaluate:
+        raise Exception("Error: can't both train and evaluate")
     return args, writer
+
+class TrainState(train_state.TrainState):
+    batch_stats: dict
+    dropout_key: jax.random.KeyArray
+
+from functools import partial
+@partial(jax.jit, static_argnames='train')
+def model_step(state: TrainState, x, y, train: bool = True):
+
+    def loss_fn(params):
+        logits, updates = state.apply_fn(
+            {'params': params, 'batch_stats': state.batch_stats},
+            x, train=train,
+            mutable=['batch_stats'],
+            rngs={'dropout': jax.random.fold_in(state.dropout_key, state.step)}
+        )
+        loss = -(y * jax.nn.log_softmax(logits)).sum(-1).mean()
+        return loss, (logits, updates)
+    
+    if train:
+        (loss, (logits, updates)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+        state = state.apply_gradients(grads=grads)
+        state = state.replace(batch_stats=updates['batch_stats'])
+    else:
+        loss, (logits, _) = loss_fn(state.params)
+
+    y_cat = jnp.argmax(y, -1)
+    top1 = (jnp.argmax(logits, -1) == y_cat).mean()
+    top5_pred = jnp.argsort(logits, axis=-1)[:, -5:]
+    top5 = jnp.any(top5_pred == y_cat[:, jnp.newaxis], axis=-1).mean()
+
+    return state, loss, top1, top5
 
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
     model = Yolov1PreModel()
     key = jax.random.PRNGKey(args.seed)
     print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
-
-    class TrainState(train_state.TrainState):
-        batch_stats: dict
-        dropout_key: jax.random.KeyArray
 
     variables = model.init(key, jnp.empty(args.input_shape), train=False)
     state = TrainState.create(
@@ -146,77 +181,71 @@ if __name__ == '__main__':
     train_ds, train_ds_size = ds_builder.get_dataset(sub_dataset='train')
     val_ds, val_ds_size = ds_builder.get_dataset(sub_dataset='val')
 
-    from functools import partial
-    @partial(jax.jit, static_argnames='train')
-    def model_step(state: TrainState, x, y, train: bool = True):
-
-        def loss_fn(params):
-            logits, updates = state.apply_fn(
-                {'params': params, 'batch_stats': state.batch_stats},
-                x, train=train,
-                mutable=['batch_stats'],
-                rngs={'dropout': jax.random.fold_in(state.dropout_key, state.step)}
-            )
-            loss = -(y * jax.nn.log_softmax(logits)).sum(-1).mean()
-            return loss, (logits, updates)
-        
-        if train:
-            (loss, (logits, updates)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
-            state = state.apply_gradients(grads=grads)
-            state = state.replace(batch_stats=updates['batch_stats'])
-        else:
-            loss, (logits, _) = loss_fn(state.params, x, y)
-
-        y_cat = jnp.argmax(y, -1)
-        top1 = (jnp.argmax(logits, -1) == y_cat).mean()
-        top5_pred = jnp.argsort(logits, axis=-1)[:, -5:]
-        top5 = jnp.any(top5_pred == y_cat[:, jnp.newaxis], axis=-1).mean()
-
-        return state, loss, top1, top5
-
     import time
     from tqdm import tqdm
 
     start_time, global_step = time.time(), 0
-    for epoch in range(1,args.total_epochs+1):
-        print(f"epoch: {epoch}/{args.total_epochs}")
-        logs.reset()
-        print("training...")
+    if args.train:
+        for epoch in range(1,args.total_epochs+1):
+            print(f"epoch: {epoch}/{args.total_epochs}")
+            logs.reset()
+            print("training...")
+            for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
+            # for x, y in tqdm(train_ds.take(300), total=300, desc="Processing"):
+                global_step += 1
+                state, *metrics = model_step(state, x.numpy(), y.numpy())
+                logs.update(
+                    ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train'],
+                    metrics
+                )
+                if global_step % args.write_tensorboard_freq == 0:
+                    logs.update(
+                        ['SPS', 'SPS_avg', 'epoch'],
+                        [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
+                    )
+                    logs.start_time = time.time()
+                    logs.writer_tensorboard(writer, global_step)
+
+            logs.reset()
+            print("validating...")
+            for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
+                state, *metrics = model_step(state, x.numpy(), y.numpy(), train=False)
+                logs.update(
+                    ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val', 'epoch'],
+                    metrics + [epoch]
+                )
+            logs.writer_tensorboard(writer, global_step)
+
+            if epoch % args.save_weights_freq == 0:
+                path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
+                with open(path, 'wb') as file:
+                    file.write(flax.serialization.to_bytes(state))
+                print(f"save weights at '{str(path)}'")
+                save_id += 1
+    elif args.evaluate:
+        print("evaluate on train dataset:")
         for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
-        # for x, y in tqdm(train_ds.take(300), total=300, desc="Processing"):
             global_step += 1
-            state, *metrics = model_step(state, x.numpy(), y.numpy())
+            state, *metrics = model_step(state, x.numpy(), y.numpy(), train=False)
             logs.update(
-                ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train', 'SPS', 'SPS_avg'],
+                ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train'],
                 metrics
             )
             if global_step % args.write_tensorboard_freq == 0:
                 logs.update(
-                    ['SPS', 'SPS_avg', 'epoch'],
-                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
+                    ['SPS', 'SPS_avg'],
+                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time)]
                 )
                 logs.start_time = time.time()
                 logs.writer_tensorboard(writer, global_step)
-
-        logs.reset()
-        print("validating...")
-        for x, y in tqdm(
-            val_ds.take(args.val_sample_batch),
-            total=args.val_sample_batch,
-            desc="Processing"
-        ):
-            state, *metrics = model_step(state, x.numpy(), y.numpy())
+        print("evaluate on val dataset:")
+        for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
+            state, *metrics = model_step(state, x.numpy(), y.numpy(), train=False)
             logs.update(
-                ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val', 'epoch'],
-                metrics + [epoch]
+                ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val'],
+                metrics
             )
-        logs.writer_tensorboard(writer, global_step)
-
-        if epoch % args.save_weights_freq == 0:
-            path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
-            with open(path, 'wb') as file:
-                file.write(flax.serialization.to_bytes(state))
-            print(f"save weights at '{str(path)}'")
-            save_id += 1
+            logs.writer_tensorboard(writer, global_step)
+        print(logs.to_dict())
 
     writer.close()
