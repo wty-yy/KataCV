@@ -28,9 +28,9 @@ class ConvBlock(nn.Module):
 
 from functools import partial
 class Darknet(nn.Module):
-    conv=ConvBlock
-    max_pool=lambda _, x: nn.max_pool(x, (2, 2), strides=(2, 2))
-    activation=lambda _, x: nn.leaky_relu(x, negative_slope=0.1)
+    conv: ModuleDef = ConvBlock
+    max_pool: Callable = lambda x: nn.max_pool(x, (2, 2), strides=(2, 2))
+    activation: Callable = lambda x: nn.leaky_relu(x, negative_slope=0.1)
 
     @nn.compact
     def __call__(self, x, train: bool = True):  # (N,224,224,3)

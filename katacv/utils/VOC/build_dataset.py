@@ -63,6 +63,10 @@ def decode_example(target_size, S):
         return image, label
     return thunk
 
+DATA_SIZE = {
+    'train': 16551,
+    'val': 4952
+}
 class VOCBuilder():
     path_dataset_tfrecord: Path  # `VOC-train.tfrecord`, `VOC-val.tfrecord`, ...
     batch_size: int
@@ -78,8 +82,8 @@ class VOCBuilder():
     
     def get_dataset(self, subset='train'):
         ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"VOC-{subset}.tfrecord")))
-        ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).shuffle(self.shuffle_size)#.batch(self.batch_size)
-        return ds
+        ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).shuffle(self.shuffle_size).batch(self.batch_size, drop_remainder=True)
+        return ds, DATA_SIZE[subset]
 
 if __name__ == '__main__':
     import argparse
@@ -93,7 +97,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ds_builder = VOCBuilder(args)
-    ds = ds_builder.get_dataset("train")
+    ds, ds_size = ds_builder.get_dataset("train")
+    print("Datasize:", ds_size)
 
     from katacv.utils.detection import plot_box, plot_cells
     import time, numpy as np

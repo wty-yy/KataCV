@@ -9,8 +9,8 @@ def str2bool(x): return x in ['yes', 'y', 'True', '1']
 Parser提供通用的参数初始化，包括以下所列出的参数
 数据集对应的参数需要视情况，在实例化Parser后再进行添加
 """
-
-class Parser(argparse.ArgumentParser):
+from typing import NamedTuple
+class CVArgs(NamedTuple):
     model_name: str
     wandb_track: bool
     wandb_project_name: str
@@ -21,6 +21,20 @@ class Parser(argparse.ArgumentParser):
     seed: int
     total_epochs: int
     learning_rate: float
+    # Related
+    path_cp: Path
+    path_logs: Path
+    run_name: str
+    input_shape: tuple
+    # Dataset
+    path_dataset_tfrecord: Path
+    batch_size: int
+    shuffle_size: int
+    image_size: int
+    # Model
+    input_shape: int
+
+class Parser(argparse.ArgumentParser):
 
     def __init__(self, model_name="YoloV1", wandb_project_name="PASCAL VOC"):
         super().__init__()
@@ -47,7 +61,7 @@ class Parser(argparse.ArgumentParser):
         self.add_argument("--learning-rate", type=float, default=1e-3,
             help="the learning rate of the optimizer")
     
-    def get_args_and_writer(self):
+    def get_args_and_writer(self) -> tuple[CVArgs, SummaryWriter]:
         args = self.parse_args()
         args.path_logs.mkdir(exist_ok=True)
         args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
