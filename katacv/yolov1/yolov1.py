@@ -93,7 +93,7 @@ class YoloV1(nn.Module):
         x = conv(features=1024, kernel_size=(3,3))(x)
         x = conv(features=1024, kernel_size=(3,3))(x)
         x = x.reshape(x.shape[0], -1)
-        x = self.activation(nn.Dense(1)(x))  # small ??
+        x = self.activation(nn.Dense(2048)(x))  # small ??
         x = nn.Dropout(0.5, deterministic=not train)(x)
         x = nn.Dense(self.S*self.S*(self.C+5*self.B))(x)
         return x
@@ -117,7 +117,10 @@ def model_step(state: TrainState, x, y, train: bool = True):
         target_boxes = y[...,args.C:]    # NxSxSx5
         exist_obj = target_boxes[...,0]  # NxSxS
         # coordinate loss
-        ious = jnp.concatenate([iou(cells[...,args.C+i*5:args.C+(i+1)*5], target_boxes, keepdim=True) for i in range(args.B)], axis=-1)  # NxSxSxB
+        ious = jnp.concatenate([
+            iou(cells[...,args.C+i*5:args.C+(i+1)*5], target_boxes, scale=[1,1,args.S,args.S], keepdim=True)
+            for i in range(args.B)
+            ], axis=-1)  # NxSxSxB
         best_idxs = jnp.argmax(ious, axis=-1, keepdims=True)         # NxSxSx1
         best_boxes = slice_by_idxs(cells, best_idxs, 5)              # NxSxSx5, last dim: (c,x,y,w,h)
         loss_coord = 0.5 * (exist_obj * (
@@ -149,6 +152,32 @@ def model_step(state: TrainState, x, y, train: bool = True):
     else:
         loss, (_, metrics) = loss_fn(state.params)
     return state, (loss, *metrics)
+
+from katacv.utils.detection import nms, mAP, coco_mAP
+def get_best_boxes_and_classes(cells):
+    """
+    Get the best confidence boxes and classes in cells.
+    params::cells.shape=(S,S,C+5*B)
+    return::boxes.shape=(SxS,6), the last dim: (c,x,y,w,h,cls)
+    """
+    conf_idxs = jnp.argmax(cells[...,args.C+jnp.arange(args.B)*5], axis=-1)
+    conf_boxes = slice_by_idxs(cells, conf_idxs, 5)  # SxSx5
+    boxes = []
+    for i in range(args.S):
+        for j in range(args.S):
+            pred_class = jnp.argmax(cells[i,j,:args.C]); pred_prob = cells[i,j,pred_class]
+            conf = conf_boxes[i,j,0] * pred_prob
+            x, y = (conf_boxes[i,j,1]+j)/args.S, (conf_boxes[i,j,2]+i)/args.S
+            boxes.append(jnp.stack([conf, x, y, conf_boxes[i,j,3], conf_boxes[i,j,4], pred_class]))
+    return jnp.array(boxes)
+
+def get_nms_boxes_mAP_coco_mAP(cells, target):
+    boxes = get_best_boxes_and_classes(cells)  # Nx6
+    boxes = nms(boxes, iou_threshold=0.5, conf_threshold=0.4)  # N'x6
+    target_boxes = jnp.concatenate([target[...,20:],jnp.argmax(target[...,:20],-1,keepdims=True)],-1).reshape(-1,6)  # Nx6
+    _mAP = mAP(boxes, target_boxes, iou_threshold=0.5)
+    _coco_mAP = coco_mAP(boxes, target_boxes)
+    return boxes, _mAP, _coco_mAP
 
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
@@ -185,7 +214,6 @@ if __name__ == '__main__':
 
     import time
     from tqdm import tqdm
-    from katacv.utils.detection import mAP, coco_mAP
 
     start_time, global_step = time.time(), 0
     for epoch in range(1,args.total_epochs+1):
@@ -194,12 +222,14 @@ if __name__ == '__main__':
         print("training...")
         for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
         # for x, y in tqdm(train_ds.take(300), total=300, desc="Processing"):
+            x, y = x.numpy(), y.numpy()
             global_step += 1
             print("data shape:", x.shape, y.shape)
-            state, (*metrics, cells) = model_step(state, x.numpy(), y.numpy())
+            state, (*metrics, cells) = model_step(state, x, y)
+            boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
             logs.update(
                 ['loss_train', 'loss_coord_train', 'loss_conf_train', 'loss_noobj_train', 'loss_class_train', 'mAP_train', 'coco_mAP_train'],
-                [*metrics, mAP(cells, y, 0.5), coco_mAP(cells, y)]
+                [*metrics, *mAP_coco_mAP]
             )
             if global_step % args.write_tensorboard_freq == 0:
                 logs.update(
@@ -211,15 +241,13 @@ if __name__ == '__main__':
 
         logs.reset()
         print("validating...")
-        for x, y in tqdm(
-            val_ds.take(args.val_sample_batch),
-            total=args.val_sample_batch,
-            desc="Processing"
-        ):
-            state, *metrics = model_step(state, x.numpy(), y.numpy())
+        for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
+            x, y = x.numpy(), y.numpy()
+            state, (*metrics, cells) = model_step(state, x, y)
+            boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
             logs.update(
-                ['loss_val', 'mAP_val', 'coco_mAP_val', 'epoch'],
-                [loss, mAP(cells, y, 0.5), coco_mAP(cells, y), epoch]
+                ['loss_val', 'loss_coord_val', 'loss_conf_val', 'loss_noobj_val', 'loss_class_val', 'mAP_val', 'coco_mAP_val'],
+                [*metrics, *mAP_coco_mAP]
             )
         logs.writer_tensorboard(writer, global_step)
 
