@@ -83,13 +83,13 @@ class VOCBuilder():
     def get_dataset(self, subset='train'):
         ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"VOC-{subset}.tfrecord")))
         ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).shuffle(self.shuffle_size).batch(self.batch_size, drop_remainder=True)
-        return ds, DATA_SIZE[subset]
+        return ds, DATA_SIZE[subset] // self.batch_size
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     cvt2Path = lambda x: Path(x)
-    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/wty/Coding/datasets/VOC/tfrecord"))
+    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/tfrecord"))
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--shuffle-size", type=int, default=64*16)
     parser.add_argument("--image-size", type=int, default=448)
@@ -109,7 +109,8 @@ if __name__ == '__main__':
 
     S = args.split_size
     for image, label in tqdm(ds):
-        continue
+        image, label = image[0], label[0]
+        # continue
         # TODO: 验证label是否正确 OK
         fig, ax = plt.subplots()
         ax.imshow(image)

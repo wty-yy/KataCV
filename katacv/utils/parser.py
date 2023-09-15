@@ -33,6 +33,8 @@ class CVArgs(NamedTuple):
     image_size: int
     # Model
     input_shape: int
+    train: bool
+    evaluate: bool
 
 class Parser(argparse.ArgumentParser):
 
@@ -60,9 +62,18 @@ class Parser(argparse.ArgumentParser):
             help="the total epochs of the training")
         self.add_argument("--learning-rate", type=float, default=1e-3,
             help="the learning rate of the optimizer")
+        # model
+        self.add_argument("--train", type=str2bool, default=False, const=True, nargs='?',
+            help="if taggled, start training the model")
+        self.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
+            help="if taggled, start evaluating the model")
     
     def get_args_and_writer(self) -> tuple[CVArgs, SummaryWriter]:
         args = self.parse_args()
+
+        if args.train and args.evaluate:
+            raise Exception("Error: can't both train and evaluate")
+
         args.path_logs.mkdir(exist_ok=True)
         args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
         args.path_cp.mkdir(exist_ok=True)

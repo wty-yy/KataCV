@@ -49,7 +49,7 @@ BoxType = jax.Array
 def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: bool = False, EPS: float = 1e-6):
     """
     Calculate the intersection over union for box1 and box2.
-    params::box1, box2 shapes are (N,5), where the last dim x,y,w,h under the **same scale**:
+    params::box1, box2 shapes are (N,4), where the last dim x,y,w,h under the **same scale**:
         (x, y): the center of the box.
         (w, h): the width and the height of the box.
     return::IOU of box1 and box2, shape=(N)
@@ -82,7 +82,7 @@ def nms(boxes, iou_threshold=0.5, conf_threshold=0.4):
     for cls in uniq_classes:
         rank_boxes = jnp.sort(boxes[classes == cls], axis=0)[::-1,:]  # sort by confidence decrease
         last = 0
-        for i in range(rank_boxes.shape):
+        for i in range(rank_boxes.shape[0]):
             if (i > 0 and iou(rank_boxes[last,1:5], rank_boxes[i,1:5])[0] > iou_threshold) or (rank_boxes[i,0] < conf_threshold):
                 continue
             ret.append(rank_boxes[i])
@@ -106,7 +106,7 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
         for i in range(box1.shape[0]):
             match = False
             for j in range(box2.shape[0]):
-                if used[j] or iou(box1[i], box2[j])[0] <= iou_threshold: continue
+                if used[j] or iou(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
                 TP += 1; FN -= 1; used[j] = True; match = True
             if not match: FP += 1
             min_p, r = min(min_p, TP/(TP+FP)), TP/(TP+FN)

@@ -64,7 +64,7 @@ import argparse
 def parse_args():
     cvt2Path = lambda x: Path(x)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path-dataset", type=cvt2Path, default=Path("/home/wty/Coding/datasets/VOC/"),
+    parser.add_argument("--path-dataset", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/"),
         help="the path of the VOC dataset")
     parser.add_argument("--subset", type=str, default='train',
         help="the subset of the dataset to translate (train/val)")

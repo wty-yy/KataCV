@@ -92,7 +92,7 @@ logs = Logs(
 )
 
 def get_args_and_writer():
-    from katacv.utils.parser import Parser, Path, cvt2Path, str2bool
+    from katacv.utils.parser import Parser, Path, cvt2Path
     parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
@@ -105,15 +105,9 @@ def get_args_and_writer():
         help="the size of each batch")
     parser.add_argument("--shuffle-size", type=int, default=256*16,
         help="the shuffle size of the dataset")
-    parser.add_argument("--train", type=str2bool, default=False, const=True, nargs='?',
-        help="if taggled, start training the model")
-    parser.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
-        help="if taggled, start evaluating the model")
     
     args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
-    if args.train and args.evaluate:
-        raise Exception("Error: can't both train and evaluate")
     return args, writer
 
 class TrainState(train_state.TrainState):
@@ -148,14 +142,14 @@ def model_step(state: TrainState, x, y, train: bool = True):
 
     return state, loss, top1, top5
 
-if __name__ == '__main__':
-    args, writer = get_args_and_writer()
+def get_pretrain_state(args, verbose=False):
     model = Yolov1PreModel()
     key = jax.random.PRNGKey(args.seed)
-    print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
+    if verbose:
+        print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
 
     variables = model.init(key, jnp.empty(args.input_shape), train=False)
-    state = TrainState.create(
+    return TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
         tx=optax.adam(learning_rate=args.learning_rate),
@@ -163,6 +157,9 @@ if __name__ == '__main__':
         dropout_key=key
     )
 
+if __name__ == '__main__':
+    args, writer = get_args_and_writer()
+    state = get_pretrain_state(args, verbose=True)
     save_id = args.load_id + 1
     if save_id > 1:  # load_id > 0
         load_path = args.path_cp.joinpath(f"{args.model_name}-{save_id-1:04}")
