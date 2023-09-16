@@ -38,7 +38,7 @@ logs = Logs(
     }
 )
 
-from katacv.utils.parser import Parser, cvt2Path, SummaryWriter, CVArgs
+from katacv.utils.parser import Parser, cvt2Path, SummaryWriter, CVArgs, str2bool
 class YoloV1Args(CVArgs):
     split_size: int
     S: int
@@ -51,13 +51,13 @@ class YoloV1Args(CVArgs):
     coef_noobj: int
 
 def get_args_and_writer() -> tuple[YoloV1Args, SummaryWriter]:
-    parser = Parser(model_name="YoloV1", wandb_project_name="PASCAL VOC")
+    parser = Parser(model_name="YoloV1-test", wandb_project_name="PASCAL VOC")
     # VOC Dataset config
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/tfrecord"),
         help="the tfrecord of the PASCAL VOC dataset")
-    parser.add_argument("--batch-size", type=int, default=48,
+    parser.add_argument("--batch-size", type=int, default=16,
         help="the batch size of the model")
-    parser.add_argument("--shuffle-size", type=int, default=48 * 16,
+    parser.add_argument("--shuffle-size", type=int, default=1 * 16,
         help="the shuffle size of the dataset")
     parser.add_argument("--image-size", type=int, default=448,
         help="the image size of the model input")
@@ -76,6 +76,7 @@ def get_args_and_writer() -> tuple[YoloV1Args, SummaryWriter]:
 
     # VOC pre-train model
     args, writer = parser.get_args_and_writer()
+    args.learning_rate = 1e-5
     args.write_tensorboard_freq = 10
     args.S, args.B, args.C = args.split_size, args.bounding_box, args.class_num
     args.path_pretrain = args.path_logs.joinpath(f"YoloV1PreTrain-checkpoints/YoloV1PreTrain-{args.darknet_id:04}")
@@ -144,26 +145,20 @@ def model_step(state: TrainState, x, y, train: bool = True):
             for i in range(args.B)
             ], axis=-1)  # NxSxSxB
         best_idxs = jnp.argmax(ious, axis=-1, keepdims=True)         # NxSxSx1, last dim in [0,B)
-        # BUGFIX: best_idxs * 5
         best_boxes = slice_by_idxs(boxes, best_idxs*5, 5)              # NxSxSx5, last dim: (c,x,y,w,h)
-        # print((exist_obj * (best_boxes[...,1]-target_boxes[...,1])**2).sum([1,2]).shape)  # (48,)
         loss_coord = 0.5 * (exist_obj * (
             (best_boxes[...,1]-target_boxes[...,1])**2 +  # x
             (best_boxes[...,2]-target_boxes[...,2])**2 +  # y
             (jnp.sign(best_boxes[...,3])*jnp.sqrt(jnp.abs(best_boxes[...,3]))-jnp.sqrt(target_boxes[...,3]))**2 +  # sqrt(w)
-            (jnp.sign(best_boxes[...,4])*jnp.sqrt(jnp.abs(best_boxes[...,4]))-jnp.sqrt(target_boxes[...,4]))**2    # sqrt(h)
+            (jnp.sign(best_boxes[...,3])*jnp.sqrt(jnp.abs(best_boxes[...,4]))-jnp.sqrt(target_boxes[...,4]))**2    # sqrt(h)
         )).sum([1,2]).mean()
         # confidence loss
         loss_conf = 0.5 * (exist_obj * (best_boxes[...,0]-target_boxes[...,0])**2).sum([1,2]).mean()
-        # for i in range(args.B):  # decrease all the not best iou box confidence, not in paper?
-        #     loss_conf += 0.5 * (exist_obj * (cells[...,args.C+i*5]**2)).sum([1,2]).mean()
-        # loss_conf -= 0.5 * (exist_obj * (best_boxes[...,0]**2)).sum([1,2]).mean()
         # noobject loss
         loss_noobj = 0
         for i in range(args.B):  # if no object in cell, decrease all the box confidence.
             loss_noobj += 0.5 * ((1-exist_obj) * (boxes[...,i*5]**2)).sum([1,2]).mean()
         # class loss
-        # loss_class = -(jax.nn.log_softmax(logits)*y[...,:args.C]).sum([1,2,3]).mean()
         loss_class = 0.5 * (exist_obj * ((proba - y[...,:args.C])**2).sum(-1)).sum([1,2]).mean()
 
         loss = (
@@ -182,7 +177,14 @@ def model_step(state: TrainState, x, y, train: bool = True):
         loss, (_, metrics) = loss_fn(state.params)
     return state, (loss, *metrics)
 
-from katacv.utils.detection import nms, mAP, coco_mAP, get_best_boxes_and_classes
+def predict(state, x):
+    proba, boxes = state.apply_fn(
+        {'params': state.params, 'batch_stats': state.batch_stats},
+        x, train=False,
+    )
+    return proba, boxes
+
+from katacv.utils.detection import nms, mAP, coco_mAP, get_best_boxes_and_classes, plot_box
 
 import numpy as np
 def get_nms_boxes_mAP_coco_mAP(cells, target):
@@ -210,93 +212,74 @@ if __name__ == '__main__':
         with open(args.path_pretrain, 'rb') as file:
             pretrain_state = flax.serialization.from_bytes(pretrain_state, file.read())
         state.params['Darknet_0'] = pretrain_state.params['Darknet_0']
+        state.batch_stats['Darknet_0'] = pretrain_state.batch_stats['Darknet_0']
         print(f"Successfully load darknet from '{str(args.path_pretrain)}'")
 
     save_path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
-    if save_path.exists():
+    if save_path.exists() and args.train:
         print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
         input()
     
     from katacv.utils.VOC.build_dataset import VOCBuilder
     ds_builder = VOCBuilder(args)
-    train_ds, train_ds_size = ds_builder.get_dataset('train')
-    val_ds, val_ds_size = ds_builder.get_dataset('val')
+    train_ds, train_ds_size = ds_builder.get_dataset('8examples', repeat=100)
 
     import time
     from tqdm import tqdm
 
-    start_time, global_step = time.time(), 0
+    if args.evaluate:
+        from katacv.utils.VOC.label2realname import label2realname
+        import matplotlib.pyplot as plt
+        for x, y in train_ds:
+            x, y = x.numpy(), y.numpy()
+            proba, boxes = predict(state, x)
+            print("proba:", proba)
+            cells = jnp.concatenate([proba, boxes], axis=-1)
+            boxes = get_best_boxes_and_classes(cells, args.S, args.B, args.C)[0]
+
+            fig, ax = plt.subplots(figsize=(20,20))
+            ax.imshow(x[0])
+            for i in range(boxes.shape[0]):
+                plot_box(ax, x[0].shape, boxes[i,1:5], text=f"{label2realname[int(boxes[i,5])]} {float(boxes[i,0])}", fontsize=14)
+            plt.show()
+
+            boxes = nms(boxes, iou_threshold=0.5, conf_threshold=0.4)
+
+            fig, ax = plt.subplots(figsize=(20,20))
+            ax.imshow(x[0])
+            for i in range(boxes.shape[0]):
+                plot_box(ax, x[0].shape, boxes[i,1:5], text=f"{label2realname[int(boxes[i,5])]} {float(boxes[i,0])}", fontsize=14)
+            plt.show()
+
     if args.train:
+        start_time, global_step = time.time(), 0
         for epoch in range(1,args.total_epochs+1):
             print(f"epoch: {epoch}/{args.total_epochs}")
             logs.reset()
-            print("training...")
             for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
-            # for x, y in tqdm(train_ds.take(300), total=300, desc="Processing"):
                 x, y = x.numpy(), y.numpy()
                 global_step += 1
                 state, metrics = model_step(state, x, y)
-                # print(len(metrics))
-                # boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
                 logs.update(
                     ['loss_train', 'loss_coord_train', 'loss_conf_train', 'loss_noobj_train', 'loss_class_train', 'mAP_train', 'coco_mAP_train'],
                     [*metrics]
                 )
-                if global_step % args.write_tensorboard_freq == 0:
-                    logs.update(
-                        ['SPS', 'SPS_avg', 'epoch'],
-                        [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
-                    )
-                    logs.start_time = time.time()
-                    logs.writer_tensorboard(writer, global_step)
+            print(logs.to_dict())
 
-            logs.reset()
-            print("validating...")
-            for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
-                x, y = x.numpy(), y.numpy()
-                state, metrics = model_step(state, x, y, train=False)
-                # boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
-                logs.update(
-                    ['epoch', 'loss_val', 'loss_coord_val', 'loss_conf_val', 'loss_noobj_val', 'loss_class_val', 'mAP_val', 'coco_mAP_val'],
-                    [epoch, *metrics]
-                )
-            logs.writer_tensorboard(writer, global_step)
+            # logs.reset()
+            # print("validating...")
+            # for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
+            #     x, y = x.numpy(), y.numpy()
+            #     state, metrics = model_step(state, x, y, train=False)
+            #     # boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
+            #     logs.update(
+            #         ['epoch', 'loss_val', 'loss_coord_val', 'loss_conf_val', 'loss_noobj_val', 'loss_class_val', 'mAP_val', 'coco_mAP_val'],
+            #         [epoch, *metrics]
+            #     )
+            # logs.writer_tensorboard(writer, global_step)
 
-            if epoch % args.save_weights_freq == 0:
-                path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
-                with open(path, 'wb') as file:
-                    file.write(flax.serialization.to_bytes(state))
-                print(f"save weights at '{str(path)}'")
-                save_id += 1
-    elif args.evaluate:
-        logs.reset()
-        print("evalute train data...")
-        for x, y in tqdm(train_ds, total=train_ds_size, desc="Processing"):
-            x, y = x.numpy(), y.numpy()
-            global_step += 1
-            state, (*metrics, cells) = model_step(state, x, y, train=False)
-            # boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
-            logs.update(
-                ['loss_train', 'loss_coord_train', 'loss_conf_train', 'loss_noobj_train', 'loss_class_train', 'mAP_train', 'coco_mAP_train'],
-                [*metrics]  # no mAP, too slow
-            )
-            if global_step % args.write_tensorboard_freq == 0:
-                logs.update(
-                    ['SPS', 'SPS_avg', 'epoch'],
-                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
-                )
-                logs.start_time = time.time()
-                logs.writer_tensorboard(writer, global_step)
-
-        print("evalute val data...")
-        for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
-            x, y = x.numpy(), y.numpy()
-            state, (*metrics, cells) = model_step(state, x, y, train=False)
-            # boxes, *mAP_coco_mAP = get_nms_boxes_mAP_coco_mAP(cells, y)
-            logs.update(
-                ['loss_val', 'loss_coord_val', 'loss_conf_val', 'loss_noobj_val', 'loss_class_val', 'mAP_val', 'coco_mAP_val'],
-                [*metrics]  # no mAP, too slow
-            )
-        logs.writer_tensorboard(writer, global_step)
-        print(logs.to_dict())
-    writer.close()
+        path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
+        with open(path, 'wb') as file:
+            file.write(flax.serialization.to_bytes(state))
+        print(f"save weights at '{str(path)}'")
+        save_id += 1

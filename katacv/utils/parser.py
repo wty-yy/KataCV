@@ -67,9 +67,9 @@ class Parser(argparse.ArgumentParser):
             help="if taggled, start training the model")
         self.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
             help="if taggled, start evaluating the model")
-    
-    def get_args_and_writer(self) -> tuple[CVArgs, SummaryWriter]:
-        args = self.parse_args()
+        
+    def get_args(self, args=None) -> CVArgs:
+        args = self.parse_args(args)
 
         if args.train and args.evaluate:
             raise Exception("Error: can't both train and evaluate")
@@ -78,6 +78,10 @@ class Parser(argparse.ArgumentParser):
         args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
         args.path_cp.mkdir(exist_ok=True)
         args.run_name = f"{args.model_name}__load_{args.load_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+        return args
+    
+    def get_args_and_writer(self, args=None) -> tuple[CVArgs, SummaryWriter]:
+        args = self.get_args(args)
         if args.wandb_track:
             import wandb
             wandb.init(

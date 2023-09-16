@@ -3,7 +3,7 @@ import matplotlib.patches as patches
 import numpy as np
 import jax, jax.numpy as jnp
 
-def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | np.ndarray, text=""):
+def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | np.ndarray, text="", fontsize=8):
     """
     params::box_params: (x, y, w, h) is proportion of the image, so we need `image_shape`
         - (x, y) is the center of the box.
@@ -20,7 +20,7 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
     ax.add_patch(rect)
     bbox_props = dict(boxstyle="round, pad=0.2", edgecolor='red', facecolor='red')
     if len(text) != 0:
-        ax.text(x_min+2, y_min, text, color='white', backgroundcolor='red', va='bottom', ha='left', fontsize=8, bbox=bbox_props)
+        ax.text(x_min+2, y_min, text, color='white', backgroundcolor='red', va='bottom', ha='left', fontsize=fontsize, bbox=bbox_props)
 
 def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
     """
@@ -54,16 +54,18 @@ def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: b
         (w, h): the width and the height of the box.
     return::IOU of box1 and box2, shape=(N)
     """
+    assert(box1.shape[-1] == box2.shape[-1])
     if box1.ndim == 1: box1 = box1.reshape(1,-1)
     if box2.ndim == 1: box2 = box2.reshape(1,-1)
     if scale is not None:
         if type(scale) == list: scale = jnp.array(scale)
         box1 *= scale; box2 *= scale
-    min1, min2 = box1[...,0:2]-box1[...,2:4]/2, box2[...,0:2]-box2[...,2:4]/2
-    max1, max2 = box1[...,0:2]+box1[...,2:4]/2, box2[...,0:2]+box2[...,2:4]/2
-    inter_w = jnp.minimum(max1[...,0],max2[...,0]) - jnp.maximum(min1[...,0],min2[...,0])
-    inter_h = jnp.minimum(max1[...,1],max2[...,1]) - jnp.maximum(min1[...,1],min2[...,1])
-    inter_size = jnp.where((inter_w<=0)|(inter_h<=0), 0, inter_w*inter_h)
+    min1, min2 = box1[...,0:2]-jnp.abs(box1[...,2:4])/2, box2[...,0:2]-jnp.abs(box2[...,2:4])/2
+    max1, max2 = box1[...,0:2]+jnp.abs(box1[...,2:4])/2, box2[...,0:2]+jnp.abs(box2[...,2:4])/2
+    inter_w = (jnp.minimum(max1[...,0],max2[...,0]) - jnp.maximum(min1[...,0],min2[...,0])).clip(0.0)
+    inter_h = jnp.minimum(max1[...,1],max2[...,1]) - jnp.maximum(min1[...,1],min2[...,1]).clip(0.0)
+    # inter_size = jnp.where((inter_w<=0)|(inter_h<=0), 0, inter_w*inter_h)
+    inter_size = inter_w * inter_h
     size1, size2 = jnp.prod(max1-min1, axis=-1), jnp.prod(max2-min2, axis=-1)
     union_size = size1 + size2 - inter_size
     ret = inter_size / (union_size + EPS)
@@ -73,6 +75,29 @@ def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: b
 def nms(boxes, iou_threshold=0.5, conf_threshold=0.4):
     """
     Calculate the Non-Maximum Suppresion for boxes between the classes.
+    Params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
+    Return::the boxes after NMS.
+    """
+    if type(boxes) != list:
+        boxes = list(boxes)
+    boxes = [box for box in boxes if box[0] > conf_threshold]
+    boxes = sorted(boxes, key=lambda x: x[0], reverse=True)
+    boxes_after_nms = []
+
+    while boxes:
+        chosen_box = boxes.pop(0)
+        boxes = [
+            box for box in boxes
+            if box[5] != chosen_box[5]
+            or iou(chosen_box[1:5], box[1:5])[0] < iou_threshold
+        ]
+        boxes_after_nms.append(chosen_box)
+        
+    return np.array(boxes_after_nms)
+
+def nms_old(boxes, iou_threshold=0.5, conf_threshold=0.4):
+    """
+    Calculate the Non-Maximum Suppresion for boxes between the classes.
     params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
     return::the boxes after NMS.
     """
@@ -80,13 +105,25 @@ def nms(boxes, iou_threshold=0.5, conf_threshold=0.4):
     uniq_classes = jnp.unique(classes)
     ret = []
     for cls in uniq_classes:
-        rank_boxes = jnp.sort(boxes[classes == cls], axis=0)[::-1,:]  # sort by confidence decrease
-        last = 0
+        now = []
+        rank_boxes = boxes[classes == cls]
+        rank_boxes = rank_boxes[jnp.argsort(rank_boxes[:,0])[::-1]]
+        # rank_boxes = jnp.sort(, axis=1)[::-1,:]  # sort by confidence decrease
         for i in range(rank_boxes.shape[0]):
-            if (i > 0 and iou(rank_boxes[last,1:5], rank_boxes[i,1:5])[0] > iou_threshold) or (rank_boxes[i,0] < conf_threshold):
+            box1 = rank_boxes[i,1:5]
+            if rank_boxes[i,0] < conf_threshold: continue
+            if box1[2] <= 0 or box1[3] <= 0:
                 continue
-            ret.append(rank_boxes[i])
-            last = i
+            bad = False
+            for item in now:
+                box2 = item[1:5]
+                # print(box1, box2)
+                # print(iou(box1, box2)[0])
+                if iou(box1, box2)[0] > iou_threshold:
+                    bad = True; break
+            if not bad:
+                now.append(rank_boxes[i])
+        ret += now
     return jnp.array(ret)
 
 def mAP(boxes, target_boxes, iou_threshold=0.5):
@@ -122,6 +159,28 @@ def coco_mAP(boxes, target_boxes):
     for iou_threshold in 0.5+jnp.arange(10)*0.05:
         ret += mAP(boxes, target_boxes, iou_threshold)
     return ret / 10
+
+def get_best_boxes_and_classes(cells, S, B, C):
+    """
+    Get the best confidence boxes and classes in cells.
+    params::cells.shape=(S,S,C+5*B)
+    return::boxes.shape=(SxS,6), the last dim: (c,x,y,w,h,cls)
+    """
+    conf_idxs = jnp.argmax(cells[...,C+jnp.arange(B)*5], axis=-1)
+    # BUGFIX: C + 5 * conf_idxs
+    conf_boxes = slice_by_idxs(cells, C+5*conf_idxs, 5)  # NxSxSx5
+    boxes = []
+    # cells_prob = jax.nn.softmax(cells[...,:C], -1)
+    for i in range(S):
+        for j in range(S):
+            pred_class = jnp.argmax(cells[:,i,j,:C], -1)  # (N,)
+            # pred_prob = cells_prob[jnp.arange(cells.shape[0]),i,j,pred_class]  # (N,)
+            pred_prob = cells[jnp.arange(cells.shape[0]),i,j,pred_class]
+            conf = conf_boxes[:,i,j,0] * pred_prob  # (N,)
+            x, y = (conf_boxes[:,i,j,1]+j)/S, (conf_boxes[:,i,j,2]+i)/S  # (N,) (N,)
+            boxes.append(jnp.stack([conf, x, y, conf_boxes[:,i,j,3], conf_boxes[:,i,j,4], pred_class], -1))  # Nx6
+    boxes = jnp.array(boxes).transpose([1,0,2])
+    return boxes
 
 if __name__ == '__main__':
     a = jnp.array([1,1,2,2])

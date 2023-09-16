@@ -22,7 +22,6 @@ class ConvBlock(nn.Module):
     def __call__(self, x):
         x = nn.Conv(self.features, self.kernel_size, self.strides, self.padding)(x)
         x = self.norm()(x)
-        # x = nn.BatchNorm(use_running_average=not train)(x)
         x = self.activation(x)
         return x
 
@@ -63,7 +62,7 @@ class Darknet(nn.Module):
 class Yolov1PreModel(nn.Module):
     @nn.compact
     def __call__(self, x, train: bool = True):
-        x = Darknet()(x, train)
+        x = Darknet()(x, train)  # not need /255, since we use batch normalize
         x = nn.avg_pool(x, (7,7))
         x = x.reshape(x.shape[0], -1)
         x = nn.Dropout(0.4, deterministic=not train)(x)

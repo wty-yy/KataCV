@@ -65,7 +65,9 @@ def decode_example(target_size, S):
 
 DATA_SIZE = {
     'train': 16551,
-    'val': 4952
+    'val': 4952,
+    '8examples': 8,
+    '100examples': 103,
 }
 class VOCBuilder():
     path_dataset_tfrecord: Path  # `VOC-train.tfrecord`, `VOC-val.tfrecord`, ...
@@ -80,10 +82,12 @@ class VOCBuilder():
         self.image_size = args.image_size
         self.S = args.split_size
     
-    def get_dataset(self, subset='train'):
+    def get_dataset(self, subset='train', repeat=1, shuffle=True):
         ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"VOC-{subset}.tfrecord")))
-        ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).shuffle(self.shuffle_size).batch(self.batch_size, drop_remainder=True)
-        return ds, DATA_SIZE[subset] // self.batch_size
+        ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).repeat(repeat)
+        if shuffle: ds = ds.shuffle(self.shuffle_size)
+        ds = ds.batch(self.batch_size, drop_remainder=True)
+        return ds, DATA_SIZE[subset] * repeat // self.batch_size
 
 if __name__ == '__main__':
     import argparse
