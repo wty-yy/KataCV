@@ -4,3 +4,4 @@ logs
 wandb
 old
 test*
+.ipynb_checkpoints

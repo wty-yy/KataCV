@@ -140,17 +140,18 @@ def model_step(state: TrainState, x, y, train: bool = True):
 
     return state, loss, top1, top5
 
-def get_pretrain_state(args, verbose=False):
+def get_pretrain_state(args=None, verbose=False):
+    seed, input_shape, learning_rate = (0, (1,224,224,3), 1e-3) if args is None else (args.seed, args.input_shape, args.learning_rate)
     model = Yolov1PreModel()
-    key = jax.random.PRNGKey(args.seed)
+    key = jax.random.PRNGKey(seed)
     if verbose:
-        print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
+        print(model.tabulate(key, jnp.empty(input_shape), train=False))
 
-    variables = model.init(key, jnp.empty(args.input_shape), train=False)
+    variables = model.init(key, jnp.empty(input_shape), train=False)
     return TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
-        tx=optax.adam(learning_rate=args.learning_rate),
+        tx=optax.adam(learning_rate=learning_rate),
         batch_stats=variables['batch_stats'],
         dropout_key=key
     )

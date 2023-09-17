@@ -8,15 +8,8 @@
 @Desc    : 
 refer: https://github.com/google/flax/blob/main/examples/imagenet/models.py
 '''
-
-if __name__ == '__main__':
-    pass
-
-import sys, os
-sys.path.append(os.getcwd())
-
-from typing import Callable, Any, Tuple, Sequence
-from katacv.utils.related_pkgs.jax import *  # jax, jnp, flax, nn, train_state, optax
+from katacv.utils.related_pkgs.utility import *
+from katacv.utils.related_pkgs.jax_flax_optax_orbax import *  # jax, jnp, flax, nn, train_state, optax
 
 ModuleDef = Any
 
