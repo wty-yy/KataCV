@@ -1,70 +1,78 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : resnet.py
+@Time    : 2023/09/17 08:52:34
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+refer: https://github.com/google/flax/blob/main/examples/imagenet/models.py
+'''
+
+if __name__ == '__main__':
+    pass
+
 import sys, os
 sys.path.append(os.getcwd())
 
-from typing import Callable, Any
-import jax, jax.numpy as jnp
-import flax, flax.linen as nn
-from flax.training import train_state
-import optax
+from typing import Callable, Any, Tuple, Sequence
+from katacv.utils.related_pkgs.jax import *  # jax, jnp, flax, nn, train_state, optax
 
 ModuleDef = Any
 
-class ConvBlock(nn.Module):
-    features: int
-    kernel_size: tuple[int]
-    activation: Callable
+class BottleneckResNetBlock(nn.Module):
+    filters: int
+    conv: ModuleDef
     norm: ModuleDef
-    strides: tuple[int] = (1, 1)
-    padding: str | tuple = 'SAME'
+    act: Callable
+    strides: Tuple[int, int]  = (1, 1)
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(self.features, self.kernel_size, self.strides, self.padding)(x)
-        x = self.norm()(x)
-        x = self.activation(x)
-        return x
+        residual = x
+        x = self.conv(self.filters, (1, 1))(x)
+        x = self.act(self.norm()(x))
+        x = self.conv(self.filters, (3, 3), self.strides)(x)
+        x = self.act(self.norm()(x))
+        x = self.conv(self.filters * 4, (1, 1))(x)
+        x = self.norm(scale_init=nn.initializers.zeros_init())(x)
+        if residual.shape != x.shape:
+            residual = self.conv(
+                self.filters * 4, (1, 1), self.strides, name='conv_proj'
+            )(residual)
+            residual = self.norm(name='norm_proj')(residual)
+        return self.act(x + residual)
 
-from functools import partial
-class Darknet(nn.Module):
-    conv: ModuleDef = ConvBlock
-    max_pool: Callable = lambda x: nn.max_pool(x, (2, 2), strides=(2, 2))
-    activation: Callable = lambda x: nn.leaky_relu(x, negative_slope=0.1)
+class ResNet(nn.Module):
+    stage_size: Sequence[int]
+    block_cls: ModuleDef = BottleneckResNetBlock
+    filters: int = 64
+    conv: ModuleDef = nn.Conv
+    act: Callable = nn.relu
 
-    @nn.compact
-    def __call__(self, x, train: bool = True):  # (N,224,224,3)
-        norm = partial(nn.BatchNorm, use_running_average=not train)
-        conv = partial(self.conv, activation=self.activation, norm=norm)
-        x = conv(features=64, kernel_size=(7,7), strides=(2,2), padding=((3,3),(3,3)))(x)
-        x = self.max_pool(x)
-        x = conv(features=192, kernel_size=(3,3))(x)
-        x = self.max_pool(x)
-
-        x = conv(features=128, kernel_size=(1,1))(x)
-        x = conv(features=256, kernel_size=(3,3))(x)
-        x = conv(features=256, kernel_size=(1,1))(x)
-        x = conv(features=512, kernel_size=(3,3))(x)
-        x = self.max_pool(x)
-
-        for _ in range(4):
-            x = conv(features=256, kernel_size=(1,1))(x)
-            x = conv(features=512, kernel_size=(3,3))(x)
-        x = conv(features=512, kernel_size=(1,1))(x)
-        x = conv(features=1024, kernel_size=(3,3))(x)
-        x = self.max_pool(x)
-        
-        for _ in range(2):
-            x = conv(features=512, kernel_size=(1,1))(x)
-            x = conv(features=1024, kernel_size=(3,3))(x)
-        
-        return x
-
-class Yolov1PreModel(nn.Module):
     @nn.compact
     def __call__(self, x, train: bool = True):
-        x = Darknet()(x, train)  # not need /255, since we use batch normalize
-        x = nn.avg_pool(x, (7,7))
-        x = x.reshape(x.shape[0], -1)
-        x = nn.Dropout(0.4, deterministic=not train)(x)
+        conv = partial(self.conv, use_bias=False)
+        norm = partial(
+            nn.BatchNorm,
+            use_running_average=not train,
+            momentum=0.9,
+            epsilon=1e-5
+        )
+        x = conv(self.filters, (7, 7), strides=(2, 2), padding=((3, 3), (3, 3)), name='conv_init')(x)
+        x = self.act(norm(name='bn_init')(x))
+        x = nn.max_pool(x, (3, 3), strides=(2, 2), padding='SAME')
+        for i, block_size in enumerate(self.stage_size):
+            for j in range(block_size):
+                strides = (2, 2) if i > 0 and j == 0 else (1, 1)
+                x = self.block_cls(
+                    self.filters * 2 ** i,
+                    strides=strides,
+                    conv=conv,
+                    norm=norm,
+                    act=self.act
+                )(x)
+        x = jnp.mean(x, (1, 2))  # same as nn.avg_pool(x, (7, 7))
         x = nn.Dense(1000)(x)
         return x
 
@@ -91,7 +99,7 @@ logs = Logs(
 
 def get_args_and_writer():
     from katacv.utils.parser import Parser, Path, cvt2Path
-    parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
+    parser = Parser(model_name="ResNet101", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
         help="the path of the tfrecord dataset directory")
@@ -103,6 +111,9 @@ def get_args_and_writer():
         help="the size of each batch")
     parser.add_argument("--shuffle-size", type=int, default=256*16,
         help="the shuffle size of the dataset")
+    # Hyper-parameters
+    parser.add_argument("--weight-decay", type=float, default=1e-4,
+        help="the coef of the weight penalty")
     
     args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
@@ -110,9 +121,7 @@ def get_args_and_writer():
 
 class TrainState(train_state.TrainState):
     batch_stats: dict
-    dropout_key: jax.random.KeyArray
 
-from functools import partial
 @partial(jax.jit, static_argnames='train')
 def model_step(state: TrainState, x, y, train: bool = True):
 
@@ -121,9 +130,12 @@ def model_step(state: TrainState, x, y, train: bool = True):
             {'params': params, 'batch_stats': state.batch_stats},
             x, train=train,
             mutable=['batch_stats'],
-            rngs={'dropout': jax.random.fold_in(state.dropout_key, state.step)}
         )
         loss = -(y * jax.nn.log_softmax(logits)).sum(-1).mean()
+        weight_l2 = 0.5 * sum(
+            jnp.sum(x**2) for x in jax.tree_util.tree_leaves(params) if x.ndim > 1  # no bias
+        )
+        loss += args.weight_decay * weight_l2
         return loss, (logits, updates)
     
     if train:
@@ -140,19 +152,24 @@ def model_step(state: TrainState, x, y, train: bool = True):
 
     return state, loss, top1, top5
 
+model_cls = {
+    'ResNet50': partial(ResNet, stage_size=(3,4,6,3)),
+    'ResNet101': partial(ResNet, stage_size=(3,4,23,3)),
+    'ResNet152': partial(ResNet, stage_size=(3,8,36,3)),
+    'ResNet200': partial(ResNet, stage_size=(3,24,36,3)),
+}
+
 def get_pretrain_state(args, verbose=False):
-    model = Yolov1PreModel()
+    model = model_cls[args.model_name]()
     key = jax.random.PRNGKey(args.seed)
     if verbose:
-        print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
-
-    variables = model.init(key, jnp.empty(args.input_shape), train=False)
+        print(model.tabulate(key, jnp.empty(args.input_shape)))
+    variables = model.init(key, jnp.empty(args.input_shape))
     return TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
         tx=optax.adam(learning_rate=args.learning_rate),
         batch_stats=variables['batch_stats'],
-        dropout_key=key
     )
 
 if __name__ == '__main__':
