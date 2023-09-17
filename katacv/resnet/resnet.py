@@ -92,7 +92,7 @@ logs = Logs(
 
 def get_args_and_writer():
     from katacv.utils.parser import Parser, Path, cvt2Path
-    parser = Parser(model_name="ResNet101", wandb_project_name="Imagenet2012")
+    parser = Parser(model_name="ResNet50", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
         help="the path of the tfrecord dataset directory")
@@ -100,9 +100,9 @@ def get_args_and_writer():
         help="the input image size of the model")
     parser.add_argument("--image-center-crop-padding-size", type=int, default=32,
         help="the padding size of the center crop of the origin image")
-    parser.add_argument("--batch-size", type=int, default=256,
+    parser.add_argument("--batch-size", type=int, default=128,
         help="the size of each batch")
-    parser.add_argument("--shuffle-size", type=int, default=256*16,
+    parser.add_argument("--shuffle-size", type=int, default=128*16,
         help="the shuffle size of the dataset")
     # Hyper-parameters
     parser.add_argument("--weight-decay", type=float, default=1e-4,
