@@ -30,18 +30,18 @@ class BottleneckResNetBlock(nn.Module):
     @nn.compact
     def __call__(self, x):
         residual = x
-        x = self.conv(self.filters, (1, 1))(x)
-        x = self.act(self.norm()(x))
-        x = self.conv(self.filters, (3, 3), self.strides)(x)
-        x = self.act(self.norm()(x))
-        x = self.conv(self.filters * 4, (1, 1))(x)
-        x = self.norm(scale_init=nn.initializers.zeros_init())(x)
-        if residual.shape != x.shape:
+        y = self.conv(self.filters, (1, 1))(x)  # change a variable name, such as y !!
+        y = self.act(self.norm()(y))
+        y = self.conv(self.filters, (3, 3), self.strides)(y)
+        y = self.act(self.norm()(y))
+        y = self.conv(self.filters * 4, (1, 1))(y)
+        y = self.norm(scale_init=nn.initializers.zeros_init())(y)
+        if residual.shape != y.shape:
             residual = self.conv(
                 self.filters * 4, (1, 1), self.strides, name='conv_proj'
             )(residual)
             residual = self.norm(name='norm_proj')(residual)
-        return self.act(x + residual)
+        return self.act(y + residual)
 
 class ResNet(nn.Module):
     stage_size: Sequence[int]
@@ -88,7 +88,7 @@ logs = Logs(
         'accuracy_top5_val': MeanMetric(),
         'epoch': 0,
         'SPS': MeanMetric(),
-        'SPS_avg': MeanMetric()
+        'SPS_avg': MeanMetric(),
     },
     folder2name={
         'train/metrics': ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train'],
