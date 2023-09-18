@@ -51,7 +51,7 @@ class YoloV1Args(CVArgs):
     coef_noobj: int
 
 def get_args_and_writer() -> tuple[YoloV1Args, SummaryWriter]:
-    parser = Parser(model_name="YoloV1", wandb_project_name="PASCAL VOC")
+    parser = Parser(model_name="YOLOv1", wandb_project_name="PASCAL VOC")
     # VOC Dataset config
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/tfrecord"),
         help="the tfrecord of the PASCAL VOC dataset")
@@ -82,7 +82,7 @@ def get_args_and_writer() -> tuple[YoloV1Args, SummaryWriter]:
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
     return args, writer
 
-class YoloV1(nn.Module):
+class YOLOv1(nn.Module):
     activation: Callable = lambda x: nn.leaky_relu(x, negative_slope=0.1)
     S: int = 7  # split_size
     B: int = 2  # bounding_box_num
@@ -113,7 +113,7 @@ class TrainState(train_state.TrainState):
 def get_yolov1_state(args=None, verbose=False) -> TrainState:
     seed, input_shape, learning_rate = (0, (1,224,224,3), 1e-3) if args is None else (args.seed, args.input_shape, args.learning_rate)
     key = jax.random.PRNGKey(seed)
-    model = YoloV1()
+    model = YOLOv1()
     if verbose:
         print(model.tabulate(key, jnp.empty(input_shape), train=False))
     variables = model.init(key, jnp.empty(input_shape), train=False)

@@ -58,7 +58,7 @@ class Darknet(nn.Module):
         
         return x
 
-class Yolov1PreModel(nn.Module):
+class YOLOv1PreModel(nn.Module):
     @nn.compact
     def __call__(self, x, train: bool = True):
         x = Darknet()(x, train)  # not need /255, since we use batch normalize
@@ -91,7 +91,7 @@ logs = Logs(
 
 def get_args_and_writer():
     from katacv.utils.parser import Parser, Path, cvt2Path
-    parser = Parser(model_name="YoloV1PreTrain", wandb_project_name="Imagenet2012")
+    parser = Parser(model_name="YOLOv1PreTrain", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
         help="the path of the tfrecord dataset directory")
@@ -146,7 +146,7 @@ def model_step(state: TrainState, x, y, train: bool = True):
 
 def get_pretrain_state(args=None, verbose=False):
     seed, input_shape, learning_rate = (0, (1,224,224,3), 1e-3) if args is None else (args.seed, args.input_shape, args.learning_rate)
-    model = Yolov1PreModel()
+    model = YOLOv1PreModel()
     key = jax.random.PRNGKey(seed)
     if verbose:
         print(model.tabulate(key, jnp.empty(input_shape), train=False))
