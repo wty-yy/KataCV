@@ -9,15 +9,8 @@
 refer: https://github.com/google/flax/blob/main/examples/imagenet/models.py
 2023.9.18. chagne to use sgd and warming up learning rate
 '''
-
-if __name__ == '__main__':
-    pass
-
-import sys, os
-sys.path.append(os.getcwd())
-
-from typing import Callable, Any, Tuple, Sequence
-from katacv.utils.related_pkgs.jax import *  # jax, jnp, flax, nn, train_state, optax
+from katacv.utils.related_pkgs.utility import *
+from katacv.utils.related_pkgs.jax_flax_optax_orbax import *  # jax, jnp, flax, nn, train_state, optax
 
 ModuleDef = Any
 
