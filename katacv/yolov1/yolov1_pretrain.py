@@ -103,6 +103,10 @@ def get_args_and_writer():
         help="the size of each batch")
     parser.add_argument("--shuffle-size", type=int, default=256*16,
         help="the shuffle size of the dataset")
+    parser.add_argument("--total-epochs", type=int, default=40,
+        help="the total epochs of the training")
+    parser.add_argument("--learning-rate", type=float, default=1e-3,
+        help="the learning rate of the optimizer")
     
     args, writer = parser.get_args_and_writer()
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)

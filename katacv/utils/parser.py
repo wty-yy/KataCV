@@ -58,10 +58,6 @@ class Parser(argparse.ArgumentParser):
         # Hyper-parameters
         self.add_argument("--seed", type=int, default=0,
             help="the seed for initalizing the model")
-        self.add_argument("--total-epochs", type=int, default=40,
-            help="the total epochs of the training")
-        self.add_argument("--learning-rate", type=float, default=1e-3,
-            help="the learning rate of the optimizer")
         # model
         self.add_argument("--train", type=str2bool, default=False, const=True, nargs='?',
             help="if taggled, start training the model")
