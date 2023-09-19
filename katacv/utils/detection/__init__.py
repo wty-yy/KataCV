@@ -50,11 +50,11 @@ def slice_by_idxs(a: jax.Array, idxs: jax.Array, follow_nums: int):
 BoxType = jax.Array
 def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: bool = False, EPS: float = 1e-6):
     """
-    Calculate the intersection over union for box1 and box2.
+    (JAX)Calculate the intersection over union for box1 and box2.
     @params::box1, box2 shapes are (N,4), where the last dim x,y,w,h under the **same scale**:
         (x, y): the center of the box.
         (w, h): the width and the height of the box.
-    @return::IOU of box1 and box2, shape=(N)
+    @return::IOU of box1 and box2, `shape=(N,)` when `keepdim=False`
     """
     assert(box1.shape[-1] == box2.shape[-1])
     assert(box1.shape[-1] == 4)
@@ -67,7 +67,6 @@ def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: b
     max1, max2 = box1[...,0:2]+jnp.abs(box1[...,2:4])/2, box2[...,0:2]+jnp.abs(box2[...,2:4])/2
     inter_w = (jnp.minimum(max1[...,0],max2[...,0]) - jnp.maximum(min1[...,0],min2[...,0])).clip(0.0)
     inter_h = jnp.minimum(max1[...,1],max2[...,1]) - jnp.maximum(min1[...,1],min2[...,1]).clip(0.0)
-    # inter_size = jnp.where((inter_w<=0)|(inter_h<=0), 0, inter_w*inter_h)
     inter_size = inter_w * inter_h
     size1, size2 = jnp.prod(max1-min1, axis=-1), jnp.prod(max2-min2, axis=-1)
     union_size = size1 + size2 - inter_size
@@ -120,37 +119,6 @@ def nms_old(boxes, iou_threshold=0.3, conf_threshold=0.2):
         
     return np.array(boxes_after_nms)
 
-def nms_old(boxes, iou_threshold=0.5, conf_threshold=0.4):
-    """
-    Calculate the Non-Maximum Suppresion for boxes between the classes.
-    params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
-    return::the boxes after NMS.
-    """
-    classes = boxes[:,5]
-    uniq_classes = jnp.unique(classes)
-    ret = []
-    for cls in uniq_classes:
-        now = []
-        rank_boxes = boxes[classes == cls]
-        rank_boxes = rank_boxes[jnp.argsort(rank_boxes[:,0])[::-1]]
-        # rank_boxes = jnp.sort(, axis=1)[::-1,:]  # sort by confidence decrease
-        for i in range(rank_boxes.shape[0]):
-            box1 = rank_boxes[i,1:5]
-            if rank_boxes[i,0] < conf_threshold: continue
-            if box1[2] <= 0 or box1[3] <= 0:
-                continue
-            bad = False
-            for item in now:
-                box2 = item[1:5]
-                # print(box1, box2)
-                # print(iou(box1, box2)[0])
-                if iou(box1, box2)[0] > iou_threshold:
-                    bad = True; break
-            if not bad:
-                now.append(rank_boxes[i])
-        ret += now
-    return jnp.array(ret)
-
 def mAP(boxes, target_boxes, iou_threshold=0.5):
     """
     Calculate the mAP of the boxes and the target_boxes with the iou threshold.
@@ -171,7 +139,7 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
         for i in range(box1.shape[0]):
             match = False
             for j in range(box2.shape[0]):
-                if used[j] or iou(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
+                if used[j] or jax.jit(iou)(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
                 TP += 1; FN -= 1; used[j] = True; match = True
                 break
             if not match: FP += 1
