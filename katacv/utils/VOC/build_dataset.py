@@ -21,9 +21,10 @@ from pathlib import Path
 from typing import NamedTuple
 import tensorflow as tf
 
-def resize_and_augmentation(image: tf.Tensor, params: tf.Tensor, target_size: int):
+def resize_and_augmentation(image: tf.Tensor, params: tf.Tensor, target_size: int, use_aug: bool = True):
     image = tf.image.resize([image], [target_size, target_size])[0]
     flip_rand = tf.cast(tf.random.uniform([]) < 0.5, tf.bool)
+    if not use_aug: flip_rand = tf.constant(True)
     def flip_left_right():
         flip_image = tf.image.flip_left_right(image)
         flip_params = tf.concat([1.0 - params[:,0:1], params[:,1:]], axis=1)
@@ -47,7 +48,7 @@ def boxes_to_cells(labels: tf.Tensor, params: tf.Tensor, S: int):
         label = tf.tensor_scatter_nd_update(label, [(i,j,k) for k in range(25)], features)
     return label
 
-def decode_example(target_size, S):
+def decode_example(target_size, S, use_aug):
     def thunk(example):
         feature_description = {
             'image': tf.io.FixedLenFeature([], tf.string),
@@ -58,7 +59,7 @@ def decode_example(target_size, S):
         image = tf.io.decode_jpeg(example['image'], channels=3)
         labels = tf.sparse.to_dense(example['labels'], default_value=0)
         params = tf.reshape(tf.sparse.to_dense(example['params'], default_value=0.0), [-1, 4])
-        image, params = resize_and_augmentation(image, params, target_size)
+        image, params = resize_and_augmentation(image, params, target_size, use_aug)
         label = boxes_to_cells(labels, params, S)
         return image, label
     return thunk
@@ -82,9 +83,9 @@ class VOCBuilder():
         self.image_size = args.image_size
         self.S = args.split_size
     
-    def get_dataset(self, subset='train', repeat=1, shuffle=True):
+    def get_dataset(self, subset='train', repeat=1, shuffle=True, use_aug=True):
         ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"VOC-{subset}.tfrecord")))
-        ds = ds_tfrecord.map(decode_example(self.image_size, self.S)).repeat(repeat)
+        ds = ds_tfrecord.map(decode_example(self.image_size, self.S, use_aug)).repeat(repeat)
         if shuffle: ds = ds.shuffle(self.shuffle_size)
         ds = ds.batch(self.batch_size, drop_remainder=True)
         return ds, DATA_SIZE[subset] * repeat // self.batch_size
@@ -101,7 +102,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     ds_builder = VOCBuilder(args)
-    ds, ds_size = ds_builder.get_dataset("train")
+    # ds, ds_size = ds_builder.get_dataset("train")
+    ds, ds_size = ds_builder.get_dataset("val", use_aug=False)
     print("Datasize:", ds_size)
 
     from katacv.utils.detection import plot_box, plot_cells

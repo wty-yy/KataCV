@@ -10,6 +10,7 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
         - (w, h) is the width and height of the box.
     params::text: The text display in the upper left of the bounding box.
     """
+    if type(box_params) != np.ndarray: box_params = np.array(box_params)
     assert(box_params.size == 4)
     params, shape = box_params, image_shape
     x_min = int(shape[1]*(params[0]-params[2]/2))
