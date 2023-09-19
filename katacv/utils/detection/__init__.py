@@ -34,9 +34,10 @@ def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
 
 def slice_by_idxs(a: jax.Array, idxs: jax.Array, follow_nums: int):
     """
-    slice `a` by `idxs`,
+    Slice `a` by `idxs`,
     require `a[...,0].size == idxs.size` and `max(idxs.size)+follow_nums <= a.shape[-1]`
-    example: use it to take the best boxes in YOLO 
+
+    Example: take the best boxes in YOLO 
     """
     reduce_size = a[...,0].size
     b = a.reshape(-1, a.shape[-1])
@@ -49,12 +50,13 @@ BoxType = jax.Array
 def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: bool = False, EPS: float = 1e-6):
     """
     Calculate the intersection over union for box1 and box2.
-    params::box1, box2 shapes are (N,4), where the last dim x,y,w,h under the **same scale**:
+    @params::box1, box2 shapes are (N,4), where the last dim x,y,w,h under the **same scale**:
         (x, y): the center of the box.
         (w, h): the width and the height of the box.
-    return::IOU of box1 and box2, shape=(N)
+    @return::IOU of box1 and box2, shape=(N)
     """
     assert(box1.shape[-1] == box2.shape[-1])
+    assert(box1.shape[-1] == 4)
     if box1.ndim == 1: box1 = box1.reshape(1,-1)
     if box2.ndim == 1: box2 = box2.reshape(1,-1)
     if scale is not None:
@@ -72,11 +74,33 @@ def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: b
     if keepdim: ret = ret[...,jnp.newaxis]
     return ret
 
-def nms(boxes, iou_threshold=0.5, conf_threshold=0.4):
+def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
     """
-    Calculate the Non-Maximum Suppresion for boxes between the classes.
-    Params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
-    Return::the boxes after NMS.
+    (Numpy)Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
+    @params::`boxes.shape=(M,6)` and last dim is `(c,x,y,w,h,cls)`.
+    @return::the boxes after NMS.
+    """
+    boxes = boxes[boxes[:,0]>conf_threshold]
+    conf_sorted_idxs = np.argsort(boxes[:,0])[::-1]
+    boxes = boxes[conf_sorted_idxs]
+    M = boxes.shape[0]
+    used = np.zeros(M, dtype='bool')
+    boxes_nms = np.zeros_like(boxes)
+    tot = 0
+    for i in range(M):
+        if used[i]: continue
+        boxes_nms[tot] = boxes[i]; tot += 1
+        for j in np.where((~used) & (np.arange(M)>i) & (boxes[:,5]==boxes[i,5]))[0]:
+            if jax.jit(iou)(boxes[i,1:5], boxes[j,1:5])[0] > iou_threshold:
+                used[j] = True
+    boxes_nms = boxes_nms[:tot]
+    return boxes_nms
+
+def nms_old(boxes, iou_threshold=0.3, conf_threshold=0.2):
+    """
+    Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
+    @params::`boxes.shape=(M,6)` and last dim is `(c,x,y,w,h,cls)`.
+    @return::the boxes after NMS.
     """
     if type(boxes) != list:
         boxes = list(boxes)
@@ -162,25 +186,45 @@ def coco_mAP(boxes, target_boxes):
 
 def get_best_boxes_and_classes(cells, S, B, C):
     """
-    Get the best confidence boxes and classes in cells.
-    params::cells.shape=(S,S,C+5*B)
-    return::boxes.shape=(SxS,6), the last dim: (c,x,y,w,h,cls)
+    (JAX)Get the best confidence boxes and classes in cells,
+    and convert the `x, y` that relative cell to relative whole image.
+    @param::cells `cells.shape=(N,S,S,C+5*B)`
+    @return::`boxes.shape=(N,SxS,6)`, the last dim's mean: `(c,x,y,w,h,cls)`
+    @speed up::`func = jax.jit(get_best_boxes_and_classes, static_argnums=[1,2,3])`
     """
-    conf_idxs = jnp.argmax(cells[...,C+jnp.arange(B)*5], axis=-1)
-    # BUGFIX: C + 5 * conf_idxs
-    conf_boxes = slice_by_idxs(cells, C+5*conf_idxs, 5)  # NxSxSx5
-    boxes = []
-    # cells_prob = jax.nn.softmax(cells[...,:C], -1)
-    for i in range(S):
-        for j in range(S):
-            pred_class = jnp.argmax(cells[:,i,j,:C], -1)  # (N,)
-            # pred_prob = cells_prob[jnp.arange(cells.shape[0]),i,j,pred_class]  # (N,)
-            pred_prob = cells[jnp.arange(cells.shape[0]),i,j,pred_class]
-            conf = conf_boxes[:,i,j,0] * pred_prob  # (N,)
-            x, y = (conf_boxes[:,i,j,1]+j)/S, (conf_boxes[:,i,j,2]+i)/S  # (N,) (N,)
-            boxes.append(jnp.stack([conf, x, y, conf_boxes[:,i,j,3], conf_boxes[:,i,j,4], pred_class], -1))  # Nx6
-    boxes = jnp.array(boxes).transpose([1,0,2])
-    return boxes
+    N = cells.shape[0]
+    cls = jnp.argmax(cells[...,:C], -1)                 # (N,S,S)
+    probas = slice_by_idxs(cells, cls, 1)               # (N,S,S,1)
+    confs = cells[..., [C+5*i for i in range(B)]]       # (N,S,S,B)
+    best_idxs = jnp.argmax(confs, -1)                   # (N,S,S)
+    b = slice_by_idxs(confs, C+best_idxs*5, 5)          # (N,S,S,5)
+    x, y = [jnp.repeat(x[None,...], N, 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
+    bc = b[..., 0] * probas[..., 0]             # (N,S,S)
+    bx = (b[...,1] + x) / S                     # (N,S,S)
+    by = (b[...,2] + y) / S                     # (N,S,S)
+    bw, bh = b[...,3], b[...,4]                 # (N,S,S)
+    return jnp.stack([bc,bx,by,bw,bh,cls], -1).reshape(N,-1,6)  # (N,SxS,6)
+
+
+def get_best_boxes_and_classes(cells, S, B, C):
+    """
+    (JAX)Get the best confidence boxes and classes in cells,
+    and convert the `x, y` that relative cell to relative whole image.
+    @param::cells `cells.shape=(N,S,S,C+5*B)`
+    @return `boxes.shape=(N,SxS,6)`, the last dim's mean: `(c,x,y,w,h,cls)`
+    """
+    N = cells.shape[0]
+    cls = jnp.argmax(cells[...,:C], -1)                 # (N,S,S)
+    probas = slice_by_idxs(cells, cls, 1)               # (N,S,S,1)
+    confs = cells[..., C+5*jnp.arange(B)]               # (N,S,S,B)
+    best_idxs = jnp.argmax(confs, -1)                   # (N,S,S)
+    b = slice_by_idxs(cells, C+best_idxs*5, 5)          # (N,S,S,5)
+    x, y = [jnp.repeat(x[None,...], N, 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
+    bc = b[..., 0] * probas[..., 0]             # (N,S,S)
+    bx = (b[...,1] + x) / S                     # (N,S,S)
+    by = (b[...,2] + y) / S                     # (N,S,S)
+    bw, bh = b[...,3], b[...,4]                 # (N,S,S)
+    return jnp.stack([bc,bx,by,bw,bh,cls], -1).reshape(N,-1,6)  # (N,SxS,6)
 
 if __name__ == '__main__':
     a = jnp.array([1,1,2,2])
