@@ -3,7 +3,7 @@ import matplotlib.patches as patches
 import numpy as np
 import jax, jax.numpy as jnp
 
-def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | np.ndarray, text="", fontsize=8):
+def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | np.ndarray, text="", fontsize=8, box_color='red'):
     """
     params::box_params: (x, y, w, h) is proportion of the image, so we need `image_shape`
         - (x, y) is the center of the box.
@@ -17,12 +17,12 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
     y_min = int(shape[0]*(params[1]-params[3]/2))
     w = int(shape[1] * params[2])
     h = int(shape[0] * params[3])
-    rect = patches.Rectangle((x_min, y_min), w, h, linewidth=2, edgecolor='r', facecolor='none')
+    rect = patches.Rectangle((x_min, y_min), w, h, linewidth=2, edgecolor=box_color, facecolor='none')
     ax.scatter(int(shape[1] * params[0]), int(shape[0] * params[1]), color='yellow', s=50)
     ax.add_patch(rect)
-    bbox_props = dict(boxstyle="round, pad=0.2", edgecolor='red', facecolor='red')
+    bbox_props = dict(boxstyle="round, pad=0.2", edgecolor=box_color, facecolor=box_color)
     if len(text) != 0:
-        ax.text(x_min+2, y_min, text, color='white', backgroundcolor='red', va='bottom', ha='left', fontsize=fontsize, bbox=bbox_props)
+        ax.text(x_min+2, y_min, text, color='white', backgroundcolor=box_color, va='bottom', ha='left', fontsize=fontsize, bbox=bbox_props)
 
 def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
     """
