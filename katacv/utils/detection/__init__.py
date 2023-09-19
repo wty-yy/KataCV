@@ -10,6 +10,7 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
         - (w, h) is the width and height of the box.
     params::text: The text display in the upper left of the bounding box.
     """
+    assert(box_params.size == 4)
     params, shape = box_params, image_shape
     x_min = int(shape[1]*(params[0]-params[2]/2))
     y_min = int(shape[0]*(params[1]-params[3]/2))
@@ -157,10 +158,13 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
     params::target_boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
     """
     classes = jnp.unique(target_boxes[:,5])
-    ret, min_p = 0, int(1e9)
+    APs, min_p = 0, int(1e9)
     for cls in classes:
+        r = 0  # update
         if (boxes[:,5]==cls).sum() == 0: continue
-        box1 = jnp.sort(boxes[boxes[:,5]==cls], axis=0)[::-1,:]
+        box1 = boxes[boxes[:,5]==cls]
+        sorted_idxs = jnp.argsort(box1[:,0])[::-1]  # use argsort at conf, don't use sort!
+        box1 = box1[sorted_idxs]
         box2 = target_boxes[target_boxes[:,5]==cls]
         TP, FP, FN, AP = 0, 0, box2.shape[0], 0
         used = [False for _ in range(box2.shape[0])]
@@ -169,11 +173,12 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
             for j in range(box2.shape[0]):
                 if used[j] or iou(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
                 TP += 1; FN -= 1; used[j] = True; match = True
+                break
             if not match: FP += 1
-            min_p, r = min(min_p, TP/(TP+FP)), TP/(TP+FN)
-            AP += min_p * r
-        ret += AP
-    return ret / classes.size
+            min_p, last_r, r = min(min_p, TP/(TP+FP)), r, TP/(TP+FN)  # update
+            AP += min_p * (r - last_r)  # update
+        APs += AP
+    return APs / classes.size
 
 def coco_mAP(boxes, target_boxes):
     """
@@ -184,34 +189,13 @@ def coco_mAP(boxes, target_boxes):
         ret += mAP(boxes, target_boxes, iou_threshold)
     return ret / 10
 
-def get_best_boxes_and_classes(cells, S, B, C):
-    """
-    (JAX)Get the best confidence boxes and classes in cells,
-    and convert the `x, y` that relative cell to relative whole image.
-    @param::cells `cells.shape=(N,S,S,C+5*B)`
-    @return::`boxes.shape=(N,SxS,6)`, the last dim's mean: `(c,x,y,w,h,cls)`
-    @speed up::`func = jax.jit(get_best_boxes_and_classes, static_argnums=[1,2,3])`
-    """
-    N = cells.shape[0]
-    cls = jnp.argmax(cells[...,:C], -1)                 # (N,S,S)
-    probas = slice_by_idxs(cells, cls, 1)               # (N,S,S,1)
-    confs = cells[..., [C+5*i for i in range(B)]]       # (N,S,S,B)
-    best_idxs = jnp.argmax(confs, -1)                   # (N,S,S)
-    b = slice_by_idxs(confs, C+best_idxs*5, 5)          # (N,S,S,5)
-    x, y = [jnp.repeat(x[None,...], N, 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
-    bc = b[..., 0] * probas[..., 0]             # (N,S,S)
-    bx = (b[...,1] + x) / S                     # (N,S,S)
-    by = (b[...,2] + y) / S                     # (N,S,S)
-    bw, bh = b[...,3], b[...,4]                 # (N,S,S)
-    return jnp.stack([bc,bx,by,bw,bh,cls], -1).reshape(N,-1,6)  # (N,SxS,6)
-
-
-def get_best_boxes_and_classes(cells, S, B, C):
+def get_best_boxes_and_classes(cells, B, C):
     """
     (JAX)Get the best confidence boxes and classes in cells,
     and convert the `x, y` that relative cell to relative whole image.
     @param::cells `cells.shape=(N,S,S,C+5*B)`
     @return `boxes.shape=(N,SxS,6)`, the last dim's mean: `(c,x,y,w,h,cls)`
+    @speed up::`func = jax.jit(get_best_boxes_and_classes, static_argnums=[1,2,3])`
     """
     N = cells.shape[0]
     cls = jnp.argmax(cells[...,:C], -1)                 # (N,S,S)
@@ -219,12 +203,30 @@ def get_best_boxes_and_classes(cells, S, B, C):
     confs = cells[..., C+5*jnp.arange(B)]               # (N,S,S,B)
     best_idxs = jnp.argmax(confs, -1)                   # (N,S,S)
     b = slice_by_idxs(cells, C+best_idxs*5, 5)          # (N,S,S,5)
-    x, y = [jnp.repeat(x[None,...], N, 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
-    bc = b[..., 0] * probas[..., 0]             # (N,S,S)
-    bx = (b[...,1] + x) / S                     # (N,S,S)
-    by = (b[...,2] + y) / S                     # (N,S,S)
-    bw, bh = b[...,3], b[...,4]                 # (N,S,S)
+    b = b.at[...,1:3].set(cvt_coord_cell2image(b[...,1:3]))  # set again
+    bc = b[..., 0] * probas[..., 0]                     # (N,S,S)
+    bx, by, bw, bh = [b[...,i+1] for i in range(4)]     # (N,S,S)
     return jnp.stack([bc,bx,by,bw,bh,cls], -1).reshape(N,-1,6)  # (N,SxS,6)
+
+def cvt_coord_cell2image(xy):
+    """
+    (JAX)Convert xy coordinates relative cell to relative the whole image.
+    @params::xy `shape=(None,S,S,2)`, where `S` is the splite size of the cells.
+    """
+    assert(xy.shape[-1] == 2 and xy.shape[-2] == xy.shape[-3])
+    origin_shape, S = xy.shape, xy.shape[-2]
+    if xy.ndim == 3: xy = xy.reshape(-1, S, S, 2)
+    dx, dy = [jnp.repeat(x[None,...], xy.shape[0], 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
+    return jnp.stack([(xy[...,0]+dx)/S, (xy[...,1]+dy)/S], -1).reshape(origin_shape)
+
+def cvt_one_label2boxes(label, C):
+    assert(label.ndim == 3)
+    if type(label) != np.ndarray:
+        label = np.array(label)
+    label[...,C+1:C+3] = cvt_coord_cell2image(label[...,C+1:C+3])
+    label = label[label[...,C] != 0]
+    box = jnp.concatenate([label[...,C:],jnp.argmax(label[...,:C],-1,keepdims=True)],-1).reshape(-1,6)
+    return box
 
 if __name__ == '__main__':
     a = jnp.array([1,1,2,2])
