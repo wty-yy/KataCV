@@ -12,10 +12,18 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.yolov1.yolov1_pretrain import get_pretrain_state  # change
 
+def parse_args():
+    from katacv.utils.parser import argparse, cvt2Path
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv1PreTrain/YOLOv1PreTrain-0022",
+        help="the original model weights path")
+    return parser.parse_args()
+
 if __name__ == '__main__':
+    args = parse_args()
     print(f"Loading the state...")
     state = get_pretrain_state()  # change
-    full_path = Path("/home/wty/Coding/models/YOLOv1PreTrain/YOLOv1PreTrain-0022")  # change
+    full_path = args.path  # change
     with open(full_path, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
     print(f"Load weights from '{str(full_path)}' successfully!")

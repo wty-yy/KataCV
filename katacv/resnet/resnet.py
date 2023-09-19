@@ -9,6 +9,9 @@
 refer: https://github.com/google/flax/blob/main/examples/imagenet/models.py
 2023.9.18. chagne to use sgd and warming up learning rate
 '''
+import sys, os
+sys.path.append(os.getcwd())
+
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *  # jax, jnp, flax, nn, train_state, optax
 
@@ -83,7 +86,7 @@ logs = Logs(
         'epoch': 0,
         'SPS': MeanMetric(),
         'SPS_avg': MeanMetric(),
-        'learning_rate': MeanMetric()
+        'learning_rate': 0,
     },
     folder2name={
         'train/metrics': ['loss_train', 'accuracy_top1_train', 'accuracy_top5_train'],
@@ -93,7 +96,7 @@ logs = Logs(
 )
 
 def get_args_and_writer():
-    from katacv.utils.parser import Parser, Path, cvt2Path
+    from katacv.utils.parser import Parser, Path, cvt2Path, datetime
     parser = Parser(model_name="ResNet50", wandb_project_name="Imagenet2012")
     # Imagenet dataset
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/tfrecord"),
@@ -119,6 +122,7 @@ def get_args_and_writer():
         help="the number of warming up epochs")
     
     args, writer = parser.get_args_and_writer()
+    args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     assert(args.total_epochs > args.warmup_epochs)
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
     return args, writer
@@ -181,9 +185,9 @@ def get_learning_rate_fn(args):
     return schedule_fn
 
 def get_pretrain_state(args=None, verbose=False):
-    model_name, seed, input_shape, lr_fn = (
-        ('ResNet50', 0, (1,224,224,3), 0.1) if args is None else
-        (args.model_name, args.seed, args.input_shape, args.learning_rate_fn)
+    model_name, seed, input_shape, tx = (
+        ('ResNet50', 0, (1,224,224,3), optax.sgd(0.1)) if args is None else
+        (args.model_name, args.seed, args.input_shape, optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True))
     )
     model = model_cls[model_name]()
     key = jax.random.PRNGKey(seed)
@@ -193,17 +197,14 @@ def get_pretrain_state(args=None, verbose=False):
     return TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
-        tx=optax.sgd(learning_rate=lr_fn, momentum=args.momentum, nesterov=True),
+        tx=tx,
         batch_stats=variables['batch_stats'],
     )
 
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
     
-    from katacv.utils.imagenet.build_dataset import ImagenetBuilder
-    ds_builder = ImagenetBuilder(args)
-    train_ds, train_ds_size = ds_builder.get_dataset(sub_dataset='train')
-    val_ds, val_ds_size = ds_builder.get_dataset(sub_dataset='val')
+    train_ds_size = 1281167
     args.steps_pre_epoch = train_ds_size // args.batch_size
 
     args.learning_rate_fn = get_learning_rate_fn(args)
@@ -221,12 +222,17 @@ if __name__ == '__main__':
         print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
         input()
 
+    from katacv.utils.imagenet.build_dataset import ImagenetBuilder
+    ds_builder = ImagenetBuilder(args)
+    train_ds, train_ds_size = ds_builder.get_dataset(sub_dataset='train')
+    val_ds, val_ds_size = ds_builder.get_dataset(sub_dataset='val')
+
     import time
     from tqdm import tqdm
 
     start_time, global_step = time.time(), 0
     if args.train:
-        for epoch in range(state.step//args.steps_pre_epoch, args.total_epochs+1):
+        for epoch in range(state.step//args.steps_pre_epoch+1, args.total_epochs+1):
             print(f"epoch: {epoch}/{args.total_epochs}")
             logs.reset()
             print("training...")
@@ -255,8 +261,8 @@ if __name__ == '__main__':
             for x, y in tqdm(val_ds, total=val_ds_size, desc="Processing"):
                 state, *metrics = model_step(state, x.numpy(), y.numpy(), train=False)
                 logs.update(
-                    ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val', 'epoch'],
-                    metrics + [epoch]
+                    ['loss_val', 'accuracy_top1_val', 'accuracy_top5_val', 'epoch', 'learning_rate'],
+                    metrics + [epoch, args.learning_rate_fn(state.step)]
                 )
             logs.writer_tensorboard(writer, global_step)
 
