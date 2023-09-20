@@ -64,8 +64,8 @@ class Parser(argparse.ArgumentParser):
         self.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
             help="if taggled, start evaluating the model")
         
-    def get_args(self, args=None) -> CVArgs:
-        args = self.parse_args(args)
+    def get_args(self, input_args=None) -> CVArgs:
+        args = self.parse_args(input_args)
 
         if args.train and args.evaluate:
             raise Exception("Error: can't both train and evaluate")
@@ -76,8 +76,7 @@ class Parser(argparse.ArgumentParser):
         args.run_name = f"{args.model_name}__load_{args.load_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
         return args
     
-    def get_args_and_writer(self, args=None) -> tuple[CVArgs, SummaryWriter]:
-        args = self.get_args(args)
+    def get_writer(self, args=None) -> SummaryWriter:
         if args.wandb_track:
             import wandb
             wandb.init(
@@ -92,4 +91,9 @@ class Parser(argparse.ArgumentParser):
             "hyper-parameters",
             "|param|value|\n|-|-|\n%s" % ('\n'.join([f"|{key}|{value}|" for key, value in vars(args).items()]))
         )
-        return args, writer
+        return writer
+
+    
+    def get_args_and_writer(self, input_args=None) -> tuple[CVArgs, SummaryWriter]:
+        args = self.get_args(input_args)
+        return args, self.get_writer(args)

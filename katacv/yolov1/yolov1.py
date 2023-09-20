@@ -283,8 +283,8 @@ if __name__ == '__main__':
             )
             if global_step % args.write_tensorboard_freq == 0:
                 logs.update(
-                    ['SPS', 'SPS_avg', 'epoch'],
-                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time), epoch]
+                    ['SPS', 'SPS_avg'],
+                    [args.write_tensorboard_freq/logs.get_time_length(), global_step/(time.time()-start_time)]
                 )
                 logs.start_time = time.time()
                 logs.writer_tensorboard(writer, global_step)

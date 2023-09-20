@@ -121,8 +121,9 @@ def get_args_and_writer():
     parser.add_argument("--warmup-epochs", type=int, default=3,
         help="the number of warming up epochs")
     
-    args, writer = parser.get_args_and_writer()
+    args = parser.get_args()
     args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+    writer = parser.get_writer(args)
     assert(args.total_epochs > args.warmup_epochs)
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
     return args, writer
