@@ -22,12 +22,13 @@ class ConvBlock(nn.Module):
     act: Callable
     kernel: Tuple[int, int] = (1, 1)
     strides: Tuple[int, int]  = (1, 1)
+    use_norm: bool = True
     use_act: bool = True
 
     @nn.compact
     def __call__(self, x):
-        x = nn.Conv(self.filters, self.kernel, self.strides)(x)
-        x = self.norm()(x)
+        x = nn.Conv(self.filters, self.kernel, self.strides, use_bias=not self.use_norm)(x)
+        if self.use_norm: x = self.norm()(x)
         if self.use_act: x = self.act(x)
         return x
 
