@@ -7,6 +7,8 @@
 @Blog    : https://wty-yy.space/
 @Desc    : Darknet53
 2023.09.21. 开始训练
+2023.09.22. 完成30epochs的训练，但是效果较差：val-top1 74.45%, val-top5 91.81%比resnet50还差
+2023.09.22. 重新训练50epochs, remove batch normalize bias and use mish as activate function
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -27,6 +29,7 @@ class ConvBlock(nn.Module):
 
     @nn.compact
     def __call__(self, x):
+        # do not use bias when norm is activate: https://arxiv.org/pdf/1502.03167.pdf
         x = nn.Conv(self.filters, self.kernel, self.strides, use_bias=not self.use_norm)(x)
         if self.use_norm: x = self.norm()(x)
         if self.use_act: x = self.act(x)
@@ -45,9 +48,13 @@ class ResBlock(nn.Module):
         x = self.conv(filters=2*n, kernel=(3,3), use_act=False)(x)
         return self.act(x + residue)
 
+def mish(x):  # too slow, one epoch 52mins, leaky_relu epoch 46mins
+    return x * jnp.tanh(jnp.log(1+jnp.exp(x)))
+
 class DarkNet(nn.Module):
     stage_size: Sequence[int]
     block_cls: ModuleDef = ResBlock
+    # act: Callable = mish
     act: Callable = lambda x: nn.leaky_relu(x, 0.1)
 
     @nn.compact
@@ -56,7 +63,6 @@ class DarkNet(nn.Module):
         conv = partial(ConvBlock, norm=norm, act=self.act)
         block = partial(self.block_cls, conv=conv, norm=norm, act=self.act)
         x = conv(filters=32, kernel=(3,3))(x)
-        # x = conv(self.filters, (7, 7), strides=(2, 2), padding=((3, 3), (3, 3)), name='conv_init')(x)
         outputs = []
         for i, block_size in enumerate(self.stage_size):
             x = conv(filters=x.shape[-1]*2, kernel=(3,3), strides=(2,2))(x)
@@ -97,7 +103,7 @@ logs = Logs(
     }
 )
 
-def get_args_and_writer():
+def get_args_and_writer(no_writer=False):
     from katacv.utils.parser import Parser, Path, cvt2Path, datetime
     parser = Parser(model_name="DarkNet53", wandb_project_name="Imagenet2012")
     # Imagenet dataset
@@ -116,7 +122,7 @@ def get_args_and_writer():
         help="the coef of the weight penalty")
     parser.add_argument("--momentum", type=float, default=0.9,
         help="the momentum of the SGD optimizer")
-    parser.add_argument("--total-epochs", type=int, default=30,
+    parser.add_argument("--total-epochs", type=int, default=50,
         help="the total epochs of the training")
     parser.add_argument("--learning-rate", type=float, default=0.05,
         help="the learning rate of the optimizer")
@@ -124,10 +130,11 @@ def get_args_and_writer():
         help="the number of warming up epochs")
     
     args = parser.get_args()
-    args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
-    writer = parser.get_writer(args)
     assert(args.total_epochs > args.warmup_epochs)
+    args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
+    if no_writer: return args
+    writer = parser.get_writer(args)
     return args, writer
 
 class TrainState(train_state.TrainState):
@@ -181,9 +188,15 @@ def get_learning_rate_fn(args):
     return schedule_fn
 
 def get_pretrain_state(args=None, verbose=False):
+    from katacv.utils.imagenet.build_dataset import DATASET_SIZE
+    train_ds_size = DATASET_SIZE['train']
+    args.steps_pre_epoch = train_ds_size // args.batch_size
+    args.learning_rate_fn = get_learning_rate_fn(args)
     model_name, seed, input_shape, tx = (
-        ('DarkNet53', 0, (1,224,224,3), optax.sgd(0.1)) if args is None else
-        (args.model_name, args.seed, args.input_shape, optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True))
+        args.model_name,
+        args.seed,
+        args.input_shape,
+        optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True)
     )
     model = PreTrain(darknet=DarkNet(stage_size=[1,2,8,8,4]))
     key = jax.random.PRNGKey(seed)
@@ -199,12 +212,6 @@ def get_pretrain_state(args=None, verbose=False):
 
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
-    
-    from katacv.utils.imagenet.build_dataset import DATASET_SIZE
-    train_ds_size = DATASET_SIZE['train']
-    args.steps_pre_epoch = train_ds_size // args.batch_size
-
-    args.learning_rate_fn = get_learning_rate_fn(args)
     state = get_pretrain_state(args, verbose=True)
     save_id = args.load_id + 1
     if save_id > 1:  # load_id > 0
