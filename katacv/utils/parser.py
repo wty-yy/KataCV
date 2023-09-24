@@ -76,7 +76,8 @@ class Parser(argparse.ArgumentParser):
         args.run_name = f"{args.model_name}__load_{args.load_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
         return args
     
-    def get_writer(self, args=None) -> SummaryWriter:
+    @staticmethod
+    def get_writer(args=None) -> SummaryWriter:
         if args.wandb_track:
             import wandb
             wandb.init(

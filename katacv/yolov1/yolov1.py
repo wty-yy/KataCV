@@ -52,6 +52,10 @@ class YoloV1Args(CVArgs):
 
 def get_args_and_writer() -> tuple[YoloV1Args, SummaryWriter]:
     parser = Parser(model_name="YOLOv1", wandb_project_name="PASCAL VOC")
+    parser.add_argument("--total-epochs", type=int, default=40,
+        help="the total epochs of the training")
+    parser.add_argument("--learning-rate", type=float, default=1e-4,
+        help="the learning rate of the optimizer")
     # VOC Dataset config
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/tfrecord"),
         help="the tfrecord of the PASCAL VOC dataset")

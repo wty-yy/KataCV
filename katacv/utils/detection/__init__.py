@@ -31,8 +31,8 @@ def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
     """
     x_size, y_size = int(image_shape[1] / S), int(image_shape[0] / S)
     for i in range(1,S):
-        ax.plot([i*x_size, i*x_size], [0, image_shape[0]], c='b')
-        ax.plot([0, image_shape[1]], [i*y_size, i*y_size], c='b')
+        ax.plot([i*x_size, i*x_size], [0, image_shape[0]], c='b', ls='--')
+        ax.plot([0, image_shape[1]], [i*y_size, i*y_size], c='b', ls='--')
 
 def slice_by_idxs(a: jax.Array, idxs: jax.Array, follow_nums: int):
     """
