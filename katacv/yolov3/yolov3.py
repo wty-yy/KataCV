@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : yolov3.py
+@Time    : 2023/09/25 18:37:10
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+2023/09/25: Complete yolov3 files:
+- `constant.py`: The config constants use in yolov3
+- `darknet53.py`: The pre train darknet-53 model.
+- `logs.py`: The logs manager.
+- `yolov3_loss.py`: The `model_step()` function calculate the loss and update state.
+- `yolov3_model.py`: The `get_yolov3_state()` function build the state with darknet and neck module.
+'''
 import sys, os
 sys.path.append(os.getcwd())
 from katacv.utils.related_pkgs.utility import *
