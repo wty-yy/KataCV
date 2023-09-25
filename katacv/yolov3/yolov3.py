@@ -125,7 +125,7 @@ if __name__ == '__main__':
     from katacv.yolov3.yolov3_loss import model_step
     start_time, global_step = time.time(), 0
     if args.train:
-        for epoch in range(1, args.total_epochs + 1):
+        for epoch in range(state.step//train_ds_size+1, args.total_epochs + 1):
             print(f"epoch: {epoch}/{args.total_epochs}")
             print("training...")
             logs.reset()
@@ -147,7 +147,7 @@ if __name__ == '__main__':
             for x, y in tqdm(val_ds, total=val_ds_size):
                 x = x.numpy(); y = split_targets(y, args)
                 _, loss = model_step(state, x, y, train=False)
-                logs.update(['loss_val'], [loss])
+                logs.update(['loss_val', 'epoch'], [loss, epoch])
             logs.writer_tensorboard(writer, global_step)
 
             ### Save weights ###

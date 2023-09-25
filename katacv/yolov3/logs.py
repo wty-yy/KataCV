@@ -5,7 +5,7 @@ logs = Logs(
         'loss_train': MeanMetric(),
         'loss_val': MeanMetric(),
 
-        'epoch': MeanMetric(),
+        'epoch': 0,
         'SPS': MeanMetric(),
         'SPS_avg': MeanMetric()
     },
