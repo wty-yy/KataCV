@@ -89,10 +89,9 @@ def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
     writer = parser.get_writer(args)
     return args, writer
 
-### Initialize arguments and tensorboard writer ###
-args, writer = get_args_and_writer()
-
 if __name__ == '__main__':
+    ### Initialize arguments and tensorboard writer ###
+    args, writer = get_args_and_writer()
 
     ### Initialize state ###
     from katacv.yolov3.yolov3_model import get_yolov3_state

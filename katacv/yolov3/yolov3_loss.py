@@ -2,7 +2,7 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 
 from katacv.yolov3.yolov3_model import TrainState
-from katacv.yolov3.yolov3 import args
+from katacv.yolov3.yolov3 import get_args_and_writer
 from katacv.utils.detection import iou
 
 @partial(jax.jit, static_argnames=['train'])
@@ -95,6 +95,9 @@ def model_step(
     return state, loss
 
 if __name__ == '__main__':
+    ### Initialize arguments and tensorboard writer ###
+    args, writer = get_args_and_writer()
+
     ### Initialize state ###
     from katacv.yolov3.yolov3_model import get_yolov3_state
     state = get_yolov3_state(args, verbose=False)
