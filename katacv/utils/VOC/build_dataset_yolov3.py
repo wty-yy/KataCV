@@ -218,7 +218,7 @@ def split_targets(y: tf.Tensor, args: YOLOv3Args):
 
 if __name__ == '__main__':
     import argparse
-    import katacv.yolov3.constant_coco as const
+    import katacv.yolov3.constant as const
     parser = argparse.ArgumentParser()
     cvt2Path = lambda x: Path(x)
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=const.path_dataset_tfrecord)

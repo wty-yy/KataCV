@@ -2,15 +2,15 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 
 from katacv.yolov3.yolov3_model import TrainState
-from katacv.yolov3.yolov3 import YOLOv3Args
+from katacv.yolov3.yolov3 import args
 from katacv.utils.detection import iou
-@partial(jax.jit, static_argnames=['train', 'args'])
+
+@partial(jax.jit, static_argnames=['train'])
 def model_step(
     state: TrainState,
     x: jax.Array,
     y: list,
     train: bool,
-    args: YOLOv3Args,
 ):
     def single_loss_fn(logits, target, anchors):
         """
@@ -23,41 +23,45 @@ def model_step(
         - (w,h):    mean square error (MSE)
         - {pr}:     corss entropy (CE)
         """
-        def bce(logits, y):
-            return -(
-                y * jax.nn.softplus(-logits) +
-                (1-y) * jax.nn.softplus(logits)
-            ).mean()
+        def bce(logits, y, mask):
+            return (
+                mask * (
+                - y * jax.nn.log_sigmoid(-logits) -
+                (1-y) * jax.nn.log_sigmoid(logits)
+            )).mean()
 
-        def mse(pred, y):
-            return 0.5 * ((pred - y) ** 2).mean()
+        def mse(pred, y, mask):
+            return (0.5 * mask * (pred - y) ** 2).mean()
 
-        def ce(logits, y_sparse):
+        def ce(logits, y_sparse, mask):
             assert(logits.size//logits.shape[-1] == y_sparse.size)
             C = logits.shape[-1]
-            log = -jax.nn.log_softmax(logits).reshape(-1, C)
-            return log[jnp.arange(log.shape[0]), y_sparse.reshape(-1)].mean()
+            y_onehot = jax.nn.one_hot(y_sparse, num_classes=args.C)
+            pred = -jax.nn.log_softmax(logits)
+            return (
+                mask * pred * y_onehot
+            ).mean()
         
-        noobj = target[...,0] == 0.0
-        obj = target[...,0] == 1.0
+        noobj = target[...,0:1] == 0.0
+        obj = target[...,0:1] == 1.0
 
         ### noobject loss ###
-        loss_noobj = bce(logits[...,0:1][noobj], 0.0)
+        loss_noobj = bce(logits[...,0:1], 0.0, noobj)
         ### coordinate loss ###
         anchors = anchors.reshape(1, 1, 1, args.B, 2)
         loss_coord = (
-            bce(logits[...,1:3][noobj], target[...,1:3][noobj]) +
-            mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors))
+            bce(logits[...,1:3], target[...,1:3], obj) +
+            mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors), obj)
         )
         ### object loss ###
         pred_boxes = jnp.concatenate([
             jax.nn.sigmoid(logits[...,1:3]),
-            jax.nn.exp(logits[...,3:5]) * anchors
+            jnp.exp(logits[...,3:5]) * anchors
         ], axis=-1)
-        ious = jax.lax.stop_gradient(iou(pred_boxes[obj], target[...,1:5][obj], keepdim=True))
-        loss_obj = bce(logits[...,0:1][obj], ious[obj])
+        ious = jax.lax.stop_gradient(iou(pred_boxes, target[...,1:5], keepdim=True))
+        loss_obj = bce(logits[...,0:1], ious, obj)
         ### class loss ###
-        loss_class = ce(logits[...,5:][obj], target[...,5][obj])
+        loss_class = ce(logits[...,5:], target[...,5], obj)
 
         return (
             args.coef_noobj * loss_noobj + 
@@ -89,3 +93,33 @@ def model_step(
     else:
         loss, _ = loss_fn(state.params)
     return state, loss
+
+if __name__ == '__main__':
+    ### Initialize state ###
+    from katacv.yolov3.yolov3_model import get_yolov3_state
+    state = get_yolov3_state(args, verbose=False)
+
+    ### Load weights ###
+    weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet))
+    state.params['DarkNet_0'] = weights['params']['darknet']
+    print(f"Successfully load DarkNet from '{str(args.path_darknet)}'")
+
+    ### Initialize dataset builder ###
+    from katacv.utils.VOC.build_dataset_yolov3 import DatasetBuilder, split_targets
+    ds_builder = DatasetBuilder(args)
+    train_ds, train_ds_size = ds_builder.get_dataset('val')
+
+    ### Train and evaluate ###
+    from katacv.yolov3.yolov3_loss import model_step
+    start_time, global_step = time.time(), 0
+    for epoch in range(1, args.total_epochs + 1):
+        print(f"epoch: {epoch}/{args.total_epochs}")
+        print("training...")
+        bar = tqdm(train_ds, total=train_ds_size)
+        loss_mean, count = 0, 0
+        for x, y in bar:
+            x = x.numpy(); y = split_targets(y, args)
+            global_step += 1
+            state, loss = model_step(state, x, y, train=True)
+            loss_mean += (loss - loss_mean) / (count + 1); count += 1
+            bar.set_description(f"loss={loss_mean:.2f}")

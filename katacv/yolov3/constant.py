@@ -1,8 +1,9 @@
 from katacv.utils.related_pkgs.utility import *
 
-path_dataset_tfrecord = Path("/home/yy/Coding/datasets/COCO/tfrecord")
-batch_size = 64
-shuffle_size = 64 * 16
+path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
+# path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
+batch_size = 128
+shuffle_size = 128 * 16
 image_size = 416
 split_sizes = [52, 26, 13]
 anchors = [
@@ -16,7 +17,14 @@ iou_ignore_threshold = 0.5
 
 class_num = 80
 
-coef_noobj = 10.0
-coef_coord = 10.0
+coef_noobj = 2.0
+coef_coord = 2.0
 coef_obj   = 1.0
 coef_class = 1.0
+
+total_epochs = 40
+learning_rate = 1e-5
+weight_decay = 1e-4
+
+path_darknet = Path("/home/yy/Coding/models/YOLOv3")
+darknet_id = 50
