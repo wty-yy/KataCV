@@ -1,7 +1,7 @@
 from katacv.utils.related_pkgs.utility import *
 
-path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
-# path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
+# path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
+path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
 batch_size = 128
 shuffle_size = 128 * 16
 image_size = 416
