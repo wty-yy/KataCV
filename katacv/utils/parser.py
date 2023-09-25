@@ -21,6 +21,7 @@ class CVArgs(NamedTuple):
     seed: int
     total_epochs: int
     learning_rate: float
+    weight_decay: float
     # Related
     path_cp: Path
     path_logs: Path

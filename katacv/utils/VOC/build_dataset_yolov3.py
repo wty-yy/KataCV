@@ -20,6 +20,8 @@
 - `(w, h)`：当前目标框相对于网格大小的宽度和高度。
 - `cls`：当前目标框从属的类别。
 
+note: Since the output must be matrix, use `split_targets(args, y)` to split the output into list.
+
 COCO-2014数据集：
 - 已处理好：https://www.kaggle.com/datasets/79abcc2659dc745fddfba1864438afb2fac3fabaa5f37daa8a51e36466db101e
 
@@ -195,7 +197,8 @@ class DatasetBuilder():
         ds = ds.batch(self.batch_size, drop_remainder=True)
         return ds, DATASET_SIZE[self.name][subset] * repeat // self.batch_size
 
-def get_targets(args, y):
+from katacv.yolov3.yolov3 import YOLOv3Args
+def split_targets(y: tf.Tensor, args: YOLOv3Args):
     """
     Inputs:
         Reshape the y of dataset to the list, include `len(args.split_sizes)` element.
@@ -248,7 +251,7 @@ if __name__ == '__main__':
         count += 1
         # continue
         image = image.numpy()[0]
-        targets = get_targets(args, y)
+        targets = split_targets(y, args)
         # TODO: 验证label是否正确 OK
         fig, axs = plt.subplots(1,4,figsize=(20,6))
         # axs = axs.reshape(-1)

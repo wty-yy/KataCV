@@ -219,11 +219,11 @@ if __name__ == '__main__':
 
     save_path = args.path_cp.joinpath(f"{args.model_name}-{save_id:04}")
     if save_path.exists():
-        print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
+        print(f"The weights file '{str(save_path)}' already exists, still want to continue? [enter]", end="")
         input()
     
-    from katacv.utils.VOC.build_dataset_yolov1 import VOCBuilder
-    ds_builder = VOCBuilder(args)
+    from katacv.utils.VOC.build_dataset_yolov1 import DatasetBuilder
+    ds_builder = DatasetBuilder(args)
     train_ds, train_ds_size = ds_builder.get_dataset('train')
     val_ds, val_ds_size = ds_builder.get_dataset('val')
 

@@ -48,7 +48,9 @@ def slice_by_idxs(a: jax.Array, idxs: jax.Array, follow_nums: int):
     result = b[idx1, idx2].reshape([*a.shape[:-1], follow_nums])
     return result
 
+from functools import partial
 BoxType = jax.Array
+@partial(jax.jit, static_argnums=[2,3,4])
 def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: bool = False, EPS: float = 1e-6):
     """
     (JAX)Calculate the intersection over union for box1 and box2.
