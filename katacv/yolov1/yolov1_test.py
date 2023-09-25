@@ -220,7 +220,7 @@ if __name__ == '__main__':
         print(f"The weights file '{str(save_path)}' is exists, still want to continue? [enter]", end="")
         input()
     
-    from katacv.utils.VOC.build_dataset import VOCBuilder
+    from katacv.utils.VOC.build_dataset_yolov1 import VOCBuilder
     ds_builder = VOCBuilder(args)
     train_ds, train_ds_size = ds_builder.get_dataset('8examples', repeat=100)
 

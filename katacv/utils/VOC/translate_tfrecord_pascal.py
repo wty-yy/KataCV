@@ -6,7 +6,7 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
-将VOC数据集转化为tfrecord
+将PASCAL VOC数据集转化为tfrecord
 '''
 from pathlib import Path
 from typing import NamedTuple
@@ -64,8 +64,8 @@ import argparse
 def parse_args():
     cvt2Path = lambda x: Path(x)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path-dataset", type=cvt2Path, default=Path("/home/yy/Coding/datasets/VOC/"),
-        help="the path of the VOC dataset")
+    parser.add_argument("--path-dataset", type=cvt2Path, default=Path("/home/wty/Coding/datasets/PASCAL/"),
+        help="the path of the PASCAL dataset")
     parser.add_argument("--subset", type=str, default='train',
         help="the subset of the dataset to translate (train/val)")
     args = parser.parse_args()
@@ -77,7 +77,7 @@ def parse_args():
     assert(args.path_idxs.exists())
     args.path_tfrecord = args.path_dataset.joinpath("tfrecord")
     args.path_tfrecord.mkdir(exist_ok=True)
-    args.path_tfrecord = args.path_tfrecord.joinpath(f"VOC-{args.subset}.tfrecord")
+    args.path_tfrecord = args.path_tfrecord.joinpath(f"PASCAL-{args.subset}.tfrecord")
     return args
 
 if __name__ == '__main__':

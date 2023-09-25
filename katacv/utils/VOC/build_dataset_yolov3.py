@@ -6,7 +6,27 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
-已处理好dCOCO数据集2014：https://www.kaggle.com/datasets/79abcc2659dc745fddfba1864438afb2fac3fabaa5f37daa8a51e36466db101e
+用于构建YOLOv3所需的标签数据集：
+输出：`(x, y)` 其中 x 为增强后的图像数据，大小为 `(image_size, image_size)`，
+网格划分大小分别为 `split_sizes`，以 `image_size=416` 为例，则 `split_sizes=[52,26,13]`，
+每个 `split_sizes` 从左到右依次对应 `anchors` 中的 `bounding_box` 个锚框。
+
+`y.shape=(S_i, S_i, bounding_box, 6)`，其中 `S_i in split_sizes`，
+第 `(i,j,k)` 处的六元组 `(c, x, y, w, h, cls)` 表示：
+- `(i,j)`：表示当前目标框的中心位于 `S_ixS_i` 网格的 `i` 行 `j` 列处。
+- `k`：表示当前目标框由第 `k` 个锚框进行识别（YOLOv1中就是代表框 `responsible`）。
+- `c`：`c=1` 为正例（对loss中obj产生贡献），`c=0` 为负例（对loss中noobj产生贡献），`c=-1` 为忽略样例（不对loss产生贡献）。
+- `(x, y)`：当前目标框相对于网格 `(i,j)` 左上角的相对坐标，大小位于 $(0,1)$ 之间。
+- `(w, h)`：当前目标框相对于网格大小的宽度和高度。
+- `cls`：当前目标框从属的类别。
+
+COCO-2014数据集：
+- 已处理好：https://www.kaggle.com/datasets/79abcc2659dc745fddfba1864438afb2fac3fabaa5f37daa8a51e36466db101e
+
+VOC2007, 2012数据集下载：
+- 官网: http://host.robots.ox.ac.uk/pascal/VOC/
+- 已处理好: https://www.kaggle.com/datasets/734b7bcb7ef13a045cbdd007a3c19874c2586ed0b02b4afc86126e89d00af8d2
+
 2023/09/24: 完成数据集构造，需要使用到以下8个超参数
     path_dataset_tfrecord: Path
     batch_size: int
@@ -16,6 +36,17 @@
     anchors: List[Tuple[int]]
     bounding_box: int
     iou_ignore_threshold: float
+
+speed test：COCO 
+    'train': 117264,  # 15:22/iter only load
+    'val': 4954,      # 33 s/iter only load, 142 s/iter with preprocess
+    '8examples': 8,   # 33 sec pre iter
+
+display test:
+- COCO
+python katacv/utils/VOC/build_dataset_yolov3.py --path-dataset-tfrecord /home/wty/Coding/datasets/COCO/tfrecord --batch-size 1
+- PASCAL
+python katacv/utils/VOC/build_dataset_yolov3.py --path-dataset-tfrecord /home/wty/Coding/datasets/PASCAL/tfrecord --batch-size 1
 '''
 from pathlib import Path
 from typing import NamedTuple
@@ -43,7 +74,6 @@ def iou_relative(box1: tf.Tensor, box2: tf.Tensor):
     union = tf.reduce_prod(box1) + tf.reduce_prod(box2) - inter
     return inter / (union + 1e-6)
 
-# @tf.function
 def make_target(
         labels: tf.Tensor,
         params: tf.Tensor,
@@ -130,13 +160,10 @@ def decode_example(target_size, split_sizes, anchors, anchor_per, iou_ignore_thr
         return image, label
     return thunk
 
-DATA_SIZE = {
-    'train': 117264,  # 15:22/iter only load
-    'val': 4954,  # 33 s/iter only load, 142 s/iter with preprocess
-    '8examples': 8,  # 33 sec pre iter
-}
-class COCOBuilder():
-    path_dataset_tfrecord: Path  # `COCO-train.tfrecord`, `COCO-val.tfrecord`, ...
+from katacv.utils.VOC.dataset_size import DATASET_SIZE
+class DatasetBuilder():
+    name: str  # COCO or PASCAL VOC, auto detecte from `path_dataset_tfrecord`
+    path_dataset_tfrecord: Path  # `name-train.tfrecord`, `name-val.tfrecord`, ...
     batch_size: int
     shuffle_size: int
     image_size: int
@@ -144,9 +171,10 @@ class COCOBuilder():
     anchors: List[Tuple[int]]
     anchor_per: int
     iou_ignore_threshold: float
-    
+
     def __init__(self, args: NamedTuple):
         self.path_dataset_tfrecord = args.path_dataset_tfrecord
+        self.name = str(self.path_dataset_tfrecord.parent.name)
         self.batch_size, self.shuffle_size = args.batch_size, args.shuffle_size
         self.image_size = args.image_size
         self.split_sizes = args.split_sizes
@@ -155,7 +183,7 @@ class COCOBuilder():
         self.iou_ignore_threshold = args.iou_ignore_threshold
     
     def get_dataset(self, subset='train', repeat=1, shuffle=True, use_aug=True):
-        ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"COCO-{subset}.tfrecord")))
+        ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"{self.name}-{subset}.tfrecord")))
         ds = ds_tfrecord.map(
             decode_example(
                 self.image_size, self.split_sizes,
@@ -165,7 +193,7 @@ class COCOBuilder():
         ).repeat(repeat)
         if shuffle: ds = ds.shuffle(self.shuffle_size)
         ds = ds.batch(self.batch_size, drop_remainder=True)
-        return ds, DATA_SIZE[subset] * repeat // self.batch_size
+        return ds, DATASET_SIZE[self.name][subset] * repeat // self.batch_size
 
 def get_targets(args, y):
     """
@@ -201,10 +229,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.B = args.bounding_box
 
-    ds_builder = COCOBuilder(args)
+    ds_builder = DatasetBuilder(args)
     # ds, ds_size = ds_builder.get_dataset("train")
-    ds, ds_size = ds_builder.get_dataset("8examples", shuffle=False)
-    # ds, ds_size = ds_builder.get_dataset("val", use_aug=False)
+    # ds, ds_size = ds_builder.get_dataset("8examples", shuffle=False)
+    ds, ds_size = ds_builder.get_dataset("val", shuffle=False, use_aug=False)
     print("Datasize:", ds_size)
 
     from katacv.utils.detection import plot_box, plot_cells
@@ -244,7 +272,7 @@ if __name__ == '__main__':
                                 features[2]/S,
                                 features[3]/S
                             )
-                            text = f"{label2realname[cat]} ({i},{j})"
+                            text = f"{label2realname[ds_builder.name][cat]} ({i},{j})"
                             iou_with_anchor = iou_relative(tf.constant((w,h), tf.float32), tf.constant(args.anchors[idx*3+k], tf.float32))
                             if iou_with_anchor > 0.35:
                                 good_iou_count += 1
@@ -273,7 +301,7 @@ if __name__ == '__main__':
                                 features[3]/S
                             )
                             boxes.append(np.array((x, y, w, h)))
-                            text = f"{label2realname[cat]}"
+                            text = f"{label2realname[ds_builder.name][cat]}"
                             plot_box(ax, image.shape, (x, y, w, h), text)
         eps = 1e-5
         boxes = np.round(np.array(boxes)/eps)*eps

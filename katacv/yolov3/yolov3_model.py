@@ -26,7 +26,7 @@ class ScalePredict(nn.Module):
         x = self.conv(filters=self.B*(self.C+5), kernel=(1,1), use_norm=False, use_act=False)(x)
         return x
 
-class YOLOv3Model(nn.Module):
+class Neck(nn.Module):
     B: int  # number of bouding boxes
     C: int  # number of target classes
     act: Callable = lambda x: nn.leaky_relu(x, 0.1)
@@ -47,6 +47,8 @@ class YOLOv3Model(nn.Module):
         y = jax.image.resize(y, (y.shape[0], 2*y.shape[1], 2*y.shape[2], y.shape[3]), "nearest")
         logits1 = predictor()(block(filters=128)(jnp.concatenate([y, scale1], axis=-1)))
         return [logits1, logits2, logits3]
+
+YOLOv3Model = Neck
 
 from katacv.yolov3.yolov3 import YOLOv3Args
 
