@@ -22,7 +22,10 @@ python katacv/yolov3/yolov3.py --train --model-name YOLOv3-COCO --wandb-project-
     --path-dataset-tfrecord "/home/yy/Coding/datasets/COCO/tfrecord" \
     --class-num 80
 
-2023/09/26: complete DEBUG, update mean loss, and mse loss
+2023/09/26: complete DEBUG, 
+1. Fix gradient bug: forget use `params` in loss_fn.
+2. Update mean loss: calcuate mean value based samples.
+3. Freeze `darknet` model: stop gradient for the darknet parameters and set `train=False` in darknet.
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -147,8 +150,8 @@ def model_step(
         anchors = anchors.reshape(1, 1, 1, args.B, 2)
         loss_coord = (
             bce(logits[...,1:3], target[...,1:3], obj) +
-            # mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors), obj)
-            mse(jnp.exp(logits[...,3:5])*anchors, target[...,3:5], obj)
+            mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors), obj)
+            # mse(jnp.exp(logits[...,3:5])*anchors, target[...,3:5], obj)
         )
         ### object loss ###
         pred_boxes = jnp.concatenate([
@@ -170,7 +173,7 @@ def model_step(
     def loss_fn(params):
         logits, updates = state.apply_fn(
             # Don't use `state.params`!!!
-            {'params': params, 'batch_stats': state.batch_stats},
+            {'params': {'neck': params, 'darknet': state.params_darknet}, 'batch_stats': state.batch_stats},
             x, train=train,
             mutable=['batch_stats']
         )
@@ -210,7 +213,7 @@ if __name__ == '__main__':
         print(f"Successfully load weights from '{str(path_load)}'")
     else:
         weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet))
-        state.params['DarkNet_0'] = weights['params']['darknet']
+        state.params['darknet'] = weights['params']['darknet']
         print(f"Successfully load DarkNet from '{str(args.path_darknet)}'")
     
     ### Save config ###

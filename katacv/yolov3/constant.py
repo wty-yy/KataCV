@@ -18,8 +18,8 @@ anchor_per = len(anchors) // len(split_sizes)
 bounding_box = anchor_per
 iou_ignore_threshold = 0.5
 
-coef_noobj = 2.0
-coef_coord = 2.0
+coef_noobj = 10.0
+coef_coord = 10.0
 coef_obj   = 1.0
 coef_class = 1.0
 
