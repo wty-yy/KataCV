@@ -55,7 +55,7 @@ YOLOv3Model = Neck
 class TrainState(train_state.TrainState):
     batch_stats: dict
 
-def get_yolov3_state(args, verbose=False):
+def get_yolov3_state(args, verbose=False) -> TrainState:
     model = YOLOv3Model(B=args.B, C=args.C)
     key = jax.random.PRNGKey(args.seed)
     if verbose: print(model.tabulate(key, jnp.empty(args.input_shape), train=False))

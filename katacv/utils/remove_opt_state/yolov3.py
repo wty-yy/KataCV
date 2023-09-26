@@ -16,7 +16,8 @@ from katacv.yolov3.yolov3 import get_args_and_writer
 def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-PASCAL-0040",
+    # parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-PASCAL-0050",
+    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-test-0010",
         help="the original model weights path")
     return parser.parse_args()
 
@@ -28,6 +29,7 @@ if __name__ == '__main__':
     with open(full_path, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
     print(f"Load weights from '{str(full_path)}' successfully!")
+
     # remove opt_state
     state = state.replace(opt_state=None)
     ckpter = ocp.PyTreeCheckpointer()
