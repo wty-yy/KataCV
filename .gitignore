@@ -1,7 +1,7 @@
 __pycache__
-_DEBUG
+_DEBUG*
 logs
 wandb
-old
+old*
 test*
 .ipynb_checkpoints

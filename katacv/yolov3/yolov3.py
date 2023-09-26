@@ -11,6 +11,18 @@
 - `darknet53.py`: The pre train darknet-53 model.
 - `logs.py`: The logs manager.
 - `yolov3_model.py`: The `get_yolov3_state()` function build the state with darknet and neck module.
+
+Training on PASCAL VOC:
+python katacv/yolov3/yolov3.py --train --model-name YOLOv3-PASCAL --wandb-project-name "PASCAL VOC" \
+    --path-dataset-tfrecord "/home/yy/Coding/datasets/PASCAL/tfrecord" \
+    --class-num 20
+
+Training on COCO:
+python katacv/yolov3/yolov3.py --train --model-name YOLOv3-COCO --wandb-project-name "COCO" \
+    --path-dataset-tfrecord "/home/yy/Coding/datasets/COCO/tfrecord" \
+    --class-num 80
+
+2023/09/26: complete DEBUG, update mean loss, and mse loss
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -34,8 +46,8 @@ class YOLOv3Args(CVArgs):
     coef_class: float
 
 def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
-    parser = Parser(model_name="YOLOv3-COCO", wandb_project_name="COCO")
-    # parser = Parser(model_name="YOLOv3-PASCAL", wandb_project_name="PASCAL VOC")
+    # parser = Parser(model_name="YOLOv3-COCO", wandb_project_name="COCO")
+    parser = Parser(model_name="YOLOv3-PASCAL", wandb_project_name="PASCAL VOC")
     ### Dataset config ###
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=const.path_dataset_tfrecord,
         help="the tfrecords folder of the VOC dataset (COCO or PASCAL VOC)")
@@ -110,23 +122,21 @@ def model_step(
         - {pr}:     corss entropy (CE)
         """
         def bce(logits, y, mask):
-            return (
+            return ((
                 mask * (
-                - y * jax.nn.log_sigmoid(-logits) -
-                (1-y) * jax.nn.log_sigmoid(logits)
-            )).mean()
+                - y * jax.nn.log_sigmoid(logits)
+                - (1-y) * jax.nn.log_sigmoid(-logits)
+            )).sum((1,2,3,4)) / mask.sum((1,2,3,4))).mean()
 
         def mse(pred, y, mask):
-            return (0.5 * mask * (pred - y) ** 2).mean()
+            return ((0.5 * mask * (pred - y) ** 2).sum((1,2,3,4)) / mask.sum((1,2,3,4))).mean()
 
         def ce(logits, y_sparse, mask):
             assert(logits.size//logits.shape[-1] == y_sparse.size)
             C = logits.shape[-1]
             y_onehot = jax.nn.one_hot(y_sparse, num_classes=C)
             pred = -jax.nn.log_softmax(logits)
-            return (
-                mask * pred * y_onehot
-            ).mean()
+            return ((mask * (pred * y_onehot)).sum((1,2,3,4)) / mask.sum((1,2,3,4))).mean()
         
         noobj = target[...,0:1] == 0.0
         obj = target[...,0:1] == 1.0
@@ -137,7 +147,8 @@ def model_step(
         anchors = anchors.reshape(1, 1, 1, args.B, 2)
         loss_coord = (
             bce(logits[...,1:3], target[...,1:3], obj) +
-            mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors), obj)
+            # mse(logits[...,3:5], jnp.log(1e-6+target[...,3:5]/anchors), obj)
+            mse(jnp.exp(logits[...,3:5])*anchors, target[...,3:5], obj)
         )
         ### object loss ###
         pred_boxes = jnp.concatenate([
@@ -158,7 +169,8 @@ def model_step(
 
     def loss_fn(params):
         logits, updates = state.apply_fn(
-            {'params': state.params, 'batch_stats': state.batch_stats},
+            # Don't use `state.params`!!!
+            {'params': params, 'batch_stats': state.batch_stats},
             x, train=train,
             mutable=['batch_stats']
         )
