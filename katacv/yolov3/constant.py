@@ -1,14 +1,14 @@
 from katacv.utils.related_pkgs.utility import *
 
 # PASCAL VOC
-path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
-class_num = 20
-train_ds_size = 16551
+# path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
+# class_num = 20
+# train_ds_size = 16551
 
 # COCO
-# path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
-# class_num = 80
-# train_ds_size = 117264
+path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
+class_num = 80
+train_ds_size = 117264
 
 freeze = False
 
@@ -29,9 +29,9 @@ anchor_per = len(anchors) // len(split_sizes)
 bounding_box = anchor_per
 iou_ignore_threshold = 0.5
 
-coef_noobj = 1.0
+coef_noobj = 2.0
 coef_coord = 2.0
-coef_obj   = 2.0
+coef_obj   = 1.0
 coef_class = 1.0
 
 total_epochs = 80

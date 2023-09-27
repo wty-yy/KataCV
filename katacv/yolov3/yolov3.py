@@ -101,7 +101,7 @@ def model_step(
             args.coef_coord * loss_coord + 
             args.coef_obj   * loss_obj +
             args.coef_class * loss_class
-        )
+        ), (loss_noobj, loss_coord, loss_obj, loss_class)
 
     def loss_fn(params):
         logits, updates = state.apply_fn(
@@ -112,16 +112,19 @@ def model_step(
             x, train=train,
             mutable=['batch_stats']
         )
-        loss = 0
+        total_loss = 0
+        losses = [0 for _ in range(4)]
         for i in range(len(logits)):
             now_anchors = jnp.array(args.anchors[i*args.B:(i+1)*args.B]) * args.split_sizes[i]
-            loss += single_loss_fn(logits[i], y[i], now_anchors)
+            single_loss, _losses = single_loss_fn(logits[i], y[i], now_anchors)
+            total_loss += single_loss
+            for i in range(4): losses[i] += _losses[i]
         weight_l2 = 0.5 * sum(
             jnp.sum(x**2) for x in jax.tree_util.tree_leaves(params) if x.ndim > 1
         )
         regular = args.weight_decay * weight_l2
-        cost = loss + regular
-        return cost, (updates, (loss, regular))
+        cost = total_loss + regular
+        return cost, (updates, (regular, total_loss, *losses))
     
     if train:
         (cost, (updates, metrics)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
@@ -179,7 +182,17 @@ if __name__ == '__main__':
                 x = x.numpy(); y = split_targets(y, args)
                 global_step += 1
                 state, metrics = model_step(state, x, y, train=True)
-                logs.update(['cost_train', 'loss_train', 'regular_train'], metrics)
+                logs.update(
+                    [
+                        'cost_train', 'regular_train',
+                        'loss_train', 
+                        'loss_noobj_train',
+                        'loss_coord_train',
+                        'loss_obj_train',
+                        'loss_class_train',
+                    ]
+                    , metrics
+                )
                 if global_step % args.write_tensorboard_freq == 0:
                     logs.update(
                         ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
@@ -199,8 +212,18 @@ if __name__ == '__main__':
                 x = x.numpy(); y = split_targets(y, args)
                 _, metrics = model_step(state, x, y, train=False)
                 logs.update(
-                    ['loss_val', 'epoch',  'learning_rate'],
-                    [metrics[1], epoch, args.learning_rate_fn(state.step)]
+                    [
+                        'epoch',  'learning_rate',
+                        'loss_val',
+                        'loss_noobj_val',
+                        'loss_coord_val',
+                        'loss_obj_val',
+                        'loss_class_val',
+                    ],
+                    [
+                        epoch, args.learning_rate_fn(state.step),
+                        *metrics[-5:]
+                    ]
                 )
             logs.writer_tensorboard(writer, global_step)
 

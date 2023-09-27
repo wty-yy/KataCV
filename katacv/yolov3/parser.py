@@ -17,8 +17,8 @@ class YOLOv3Args(CVArgs):
     freeze: bool
 
 def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
-    # parser = Parser(model_name="YOLOv3-COCO", wandb_project_name="COCO")
-    parser = Parser(model_name="YOLOv3-PASCAL", wandb_project_name="PASCAL VOC")
+    parser = Parser(model_name="YOLOv3-COCO", wandb_project_name="COCO")
+    # parser = Parser(model_name="YOLOv3-PASCAL", wandb_project_name="PASCAL VOC")
     ### Dataset config ###
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=const.path_dataset_tfrecord,
         help="the tfrecords folder of the VOC dataset (COCO or PASCAL VOC)")
@@ -69,7 +69,7 @@ def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
     args = parser.get_args()
     assert(args.total_epochs > args.warmup_epochs)
     args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__freeze_{args.freeze}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
-    args.write_tensorboard_freq = 10
+    args.write_tensorboard_freq = 100
     args.B, args.C = args.bounding_box, args.class_num
     args.path_darknet = args.path_darknet.joinpath(f"DarkNet53-{args.darknet_id:04}-lite")
     args.input_shape = (args.batch_size, args.image_size, args.image_size, 3)
