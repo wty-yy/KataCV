@@ -197,7 +197,7 @@ class DatasetBuilder():
         ds = ds.batch(self.batch_size, drop_remainder=True)
         return ds, DATASET_SIZE[self.name][subset] * repeat // self.batch_size
 
-from katacv.yolov3.yolov3 import YOLOv3Args
+from katacv.yolov3.parser import YOLOv3Args
 def split_targets(y: tf.Tensor, args: YOLOv3Args):
     """
     Inputs:

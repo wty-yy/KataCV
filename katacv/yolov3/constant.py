@@ -1,12 +1,23 @@
 from katacv.utils.related_pkgs.utility import *
 
+# PASCAL VOC
 path_dataset_tfrecord = Path("/home/yy/Coding/datasets/PASCAL/tfrecord")
-# path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
-# class_num = 80  # COCO
-class_num = 20  # PASCAL
+class_num = 20
+train_ds_size = 16551
 
-batch_size = 128
-shuffle_size = 128 * 16
+# COCO
+# path_dataset_tfrecord = Path("/media/yy/Data/dataset/COCO/tfrecord")
+# class_num = 80
+# train_ds_size = 117264
+
+freeze = False
+
+if freeze:
+    batch_size = 128
+    shuffle_size = 128 * 16
+else:
+    batch_size = 32
+    shuffle_size = 32 * 16
 image_size = 416
 split_sizes = [52, 26, 13]
 anchors = [
@@ -18,14 +29,18 @@ anchor_per = len(anchors) // len(split_sizes)
 bounding_box = anchor_per
 iou_ignore_threshold = 0.5
 
-coef_noobj = 10.0
-coef_coord = 10.0
-coef_obj   = 1.0
+coef_noobj = 1.0
+coef_coord = 2.0
+coef_obj   = 2.0
 coef_class = 1.0
 
-total_epochs = 40
-learning_rate = 1e-5
+total_epochs = 80
+if freeze:
+    learning_rate = 2.5e-4
+else:
+    learning_rate = 1e-4
 weight_decay = 1e-4
+warmup_epochs = 5
 
 path_darknet = Path("/home/yy/Coding/models/YOLOv3")
 darknet_id = 50

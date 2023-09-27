@@ -213,7 +213,6 @@ def get_pretrain_state(args=None, verbose=False):
 if __name__ == '__main__':
     args, writer = get_args_and_writer()
     state = get_pretrain_state(args, verbose=True)
-    exit()
     save_id = args.load_id + 1
     if save_id > 1:  # load_id > 0
         load_path = args.path_cp.joinpath(f"{args.model_name}-{save_id-1:04}")

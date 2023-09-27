@@ -73,7 +73,7 @@ class YOLOv3Model(nn.Module):
         conv = partial(ConvBlock, norm=norm, act=self.act)
         block = partial(YOLOBlock, conv=conv)
         predictor = partial(ScalePredict, conv=conv, B=self.B, C=self.C)
-        scales = DarkNet(stage_size=[1,2,8,8,4], name='darknet')(x, train=False)
+        scales = DarkNet(stage_size=[1,2,8,8,4], name='darknet')(x, train)
         outputs = Neck(norm=norm, conv=conv, block=block, predictor=predictor, name='neck')(scales)
         return outputs
 
@@ -81,24 +81,57 @@ class TrainState(train_state.TrainState):
     params_darknet: dict
     batch_stats: dict
 
-def get_yolov3_state(args, verbose=False) -> TrainState:
+def get_learning_rate_fn(args):
+    """
+    - `args.learning_rate`: the target warming up learning rate.
+    - `args.warmup_epochs`: the epochs get to the target learning rate.
+    - `args.steps_per_epoch`: number of the steps to each per epoch.
+    """
+    warmup_fn = optax.linear_schedule(
+        init_value=0.0,
+        end_value=args.learning_rate,
+        transition_steps=args.warmup_epochs * args.steps_per_epoch
+    )
+    cosine_epoch = args.total_epochs - args.warmup_epochs
+    cosine_fn = optax.cosine_decay_schedule(
+        init_value=args.learning_rate,
+        decay_steps=cosine_epoch * args.steps_per_epoch
+    )
+    schedule_fn = optax.join_schedules(
+        schedules=[warmup_fn, cosine_fn],
+        boundaries=[args.warmup_epochs * args.steps_per_epoch]
+    )
+    return schedule_fn
+
+from katacv.yolov3.parser import YOLOv3Args
+def get_yolov3_state(args: YOLOv3Args, verbose=False) -> TrainState:
+    from katacv.yolov3.constant import train_ds_size
+    args.steps_per_epoch = train_ds_size // args.batch_size
+    args.learning_rate_fn = get_learning_rate_fn(args)
     model = YOLOv3Model(B=args.B, C=args.C)
     key = jax.random.PRNGKey(args.seed)
     if verbose: print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
     variables = model.init(key, jnp.empty(args.input_shape), train=False)
+    params = {'neck': variables['params']['neck']}
+    if not args.freeze:
+        params['darknet'] = variables['params']['darknet']
     return TrainState.create(
         apply_fn=model.apply,
-        params=variables['params']['neck'],
-        params_darknet=variables['params']['darknet'],
-        tx=optax.adam(learning_rate=args.learning_rate),
+        params=params,
+        params_darknet=variables['params']['darknet'] if args.freeze else None,
+        tx=optax.adam(learning_rate=args.learning_rate_fn),
         batch_stats=variables['batch_stats']
     )
 
 if __name__ == '__main__':
-    model = YOLOv3Model(B=3, C=80)
+    from katacv.yolov3.yolov3 import get_args_and_writer
+    args = get_args_and_writer(no_writer=True)
+    state = get_yolov3_state(args, verbose=True)
     x = jnp.empty((1,416,416,3))
-    print(model.tabulate(jax.random.PRNGKey(0), x))
-    params = model.init(jax.random.PRNGKey(0), x, train=False)
-    # outputs = model.apply(params, x, train=False)
-    logits = model.apply(params, x, train=False)
+    logits, updates = state.apply_fn(
+        {'params': {'neck': state.params, 'darknet': state.params_darknet}, 'batch_stats': state.batch_stats},
+        x, train=False,
+        mutable=['batch_stats']
+    )
+    print(state.batch_stats.keys())
     print(logits[0].shape, logits[1].shape, logits[2].shape)

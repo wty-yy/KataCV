@@ -10,10 +10,11 @@ logs = Logs(
 
         'epoch': 0,
         'SPS': MeanMetric(),
-        'SPS_avg': MeanMetric()
+        'SPS_avg': MeanMetric(),
+        'learning_rate': 0,
     },
     folder2name={
         'metrics': ['loss_train', 'loss_val', 'cost_train', 'regular_train'],
-        'charts': ['SPS', 'SPS_avg', 'epoch']
+        'charts': ['SPS', 'SPS_avg', 'epoch', 'learning_rate']
     }
 )
