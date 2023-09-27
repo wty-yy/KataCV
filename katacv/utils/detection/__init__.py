@@ -94,7 +94,7 @@ def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
         if used[i]: continue
         boxes_nms[tot] = boxes[i]; tot += 1
         for j in np.where((~used) & (np.arange(M)>i) & (boxes[:,5]==boxes[i,5]))[0]:
-            if jax.jit(iou)(boxes[i,1:5], boxes[j,1:5])[0] > iou_threshold:
+            if iou(boxes[i,1:5], boxes[j,1:5])[0] > iou_threshold:
                 used[j] = True
     boxes_nms = boxes_nms[:tot]
     return boxes_nms
@@ -124,14 +124,14 @@ def nms_old(boxes, iou_threshold=0.3, conf_threshold=0.2):
 
 def mAP(boxes, target_boxes, iou_threshold=0.5):
     """
-    Calculate the mAP of the boxes and the target_boxes with the iou threshold.
-    params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
-    params::target_boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
+    Calculate the mAP (AP: area under PR curve) of the boxes and the target_boxes with the iou threshold.
+    @params::boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
+    @params::target_boxes.shape=(N,6) and last dim is (c,x,y,w,h,cls).
     """
     classes = jnp.unique(target_boxes[:,5])
-    APs, min_p = 0, int(1e9)
+    APs = 0
     for cls in classes:
-        r = 0  # update
+        p, r = 1.0, 0.0  # update
         if (boxes[:,5]==cls).sum() == 0: continue
         box1 = boxes[boxes[:,5]==cls]
         sorted_idxs = jnp.argsort(box1[:,0])[::-1]  # use argsort at conf, don't use sort!
@@ -142,12 +142,12 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
         for i in range(box1.shape[0]):
             match = False
             for j in range(box2.shape[0]):
-                if used[j] or jax.jit(iou)(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
+                if used[j] or iou(box1[i,1:5], box2[j,1:5])[0] <= iou_threshold: continue
                 TP += 1; FN -= 1; used[j] = True; match = True
                 break
             if not match: FP += 1
-            min_p, last_r, r = min(min_p, TP/(TP+FP)), r, TP/(TP+FN)  # update
-            AP += min_p * (r - last_r)  # update
+            last_p, p, last_r, r = p, TP/(TP+FP), r, TP/(TP+FN)
+            AP += (last_p + p) * (r - last_r) / 2
         APs += AP
     return APs / classes.size
 
@@ -179,6 +179,7 @@ def get_best_boxes_and_classes(cells, B, C):
     bx, by, bw, bh = [b[...,i+1] for i in range(4)]     # (N,S,S)
     return jnp.stack([bc,bx,by,bw,bh,cls], -1).reshape(N,-1,6)  # (N,SxS,6)
 
+@jax.jit
 def cvt_coord_cell2image(xy):
     """
     (JAX)Convert xy coordinates relative cell to relative the whole image.
@@ -190,7 +191,7 @@ def cvt_coord_cell2image(xy):
     dx, dy = [jnp.repeat(x[None,...], xy.shape[0], 0) for x in jnp.meshgrid(jnp.arange(S), jnp.arange(S))]
     return jnp.stack([(xy[...,0]+dx)/S, (xy[...,1]+dy)/S], -1).reshape(origin_shape)
 
-def cvt_one_label2boxes(label, C):
+def cvt_one_yolov1_label2boxes(label, C):
     assert(label.ndim == 3)
     if type(label) != np.ndarray:
         label = np.array(label)
@@ -198,6 +199,25 @@ def cvt_one_label2boxes(label, C):
     label = label[label[...,C] != 0]
     box = jnp.concatenate([label[...,C:],jnp.argmax(label[...,:C],-1,keepdims=True)],-1).reshape(-1,6)
     return box
+
+def cvt_one_yolov3_label2boxes(label):
+    """
+    (Numpy) Convert one YOLOv3 label to origin bboxes (relative to the whole image),
+    assume the labels output of the dataset is `labels`, 
+    the bboxes in first example can be call by `cvt_one_yolov3_label2boxes(labels[0][0])`
+    - label.shape=(S,S,B,6), elements: (c,x,y,w,h,cls)
+    """
+    if type(label) != np.ndarray:
+        label = np.array(label)
+    boxes = []
+    for i in range(label.shape[2]):
+        box = label[:,:,i,:]  # (S,S,5+C)
+        box[...,1:3] = cvt_coord_cell2image(box[...,1:3])
+        box[...,3:5] /= box.shape[0]
+        box = box[box[...,0] == 1]
+        if box.size != 0:
+            boxes.append(box)
+    return np.concatenate(boxes, 0)
 
 if __name__ == '__main__':
     a = jnp.array([1,1,2,2])
