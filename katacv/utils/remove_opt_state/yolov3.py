@@ -11,18 +11,18 @@ def convert_bytes(size):
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.yolov3.yolov3_model import get_yolov3_state  # change
-from katacv.yolov3.yolov3 import get_args_and_writer
+from katacv.yolov3.parser import get_args_and_writer
 
 def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-PASCAL-0040",
+    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-PASCAL-0080",
         help="the original model weights path")
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()
-    print(f"Loading the state...")
+    print(f"Loading the state from '{str(args.path)}'...")
     state = get_yolov3_state(get_args_and_writer(no_writer=True))  # change
     full_path = args.path  # change
     with open(full_path, 'rb') as file:
