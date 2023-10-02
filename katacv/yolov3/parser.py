@@ -16,7 +16,7 @@ class YOLOv3Args(CVArgs):
     coef_class: float
     freeze: bool
 
-def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
+def get_args_and_writer(no_writer=False, input_args=None) -> tuple[YOLOv3Args, SummaryWriter] | YOLOv3Args:
     parser = Parser(model_name="YOLOv3-COCO", wandb_project_name="COCO")
     # parser = Parser(model_name="YOLOv3-PASCAL", wandb_project_name="PASCAL VOC")
     ### Dataset config ###
@@ -66,7 +66,7 @@ def get_args_and_writer(no_writer=False) -> tuple[YOLOv3Args, SummaryWriter]:
     parser.add_argument("--darknet-id", type=int, default=const.darknet_id,
         help="the weights id of the darknet model")
 
-    args = parser.get_args()
+    args = parser.get_args(input_args)
     assert(args.total_epochs > args.warmup_epochs)
     args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__freeze_{args.freeze}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     args.write_tensorboard_freq = 100

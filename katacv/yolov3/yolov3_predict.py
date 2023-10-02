@@ -5,6 +5,7 @@ from katacv.utils.detection import slice_by_idxs, cvt_coord_cell2image
 @partial(jax.jit, static_argnames=['B'])
 def predict(state: TrainState, x, anchors, B=3):
     logits = state.apply_fn(
+        # {'params': {'neck': state.params, 'darknet': state.params_darknet}, 'batch_stats': state.batch_stats},
         {'params': state.params, 'batch_stats': state.batch_stats},
         x, train=False
     )
@@ -19,8 +20,6 @@ def predict(state: TrainState, x, anchors, B=3):
             h = jnp.exp(now[...,4:5]) * anchors[k][1]  # (N,B,B,1)
             cls = jnp.argmax(jax.nn.softmax(now[...,5:]), -1, keepdims=True)  # (N,B,B,1)
             c = jax.nn.sigmoid(now[...,0:1]) * jnp.max(jax.nn.softmax(now[...,5:]), -1, keepdims=True)  # (N,B,B,1)
-            # c = jax.nn.sigmoid(now[...,0:1])  # (N,B,B,1)
-            # print(c.shape, xy.shape, w.shape, h.shape, cls.shape)
             ret.append(jnp.concatenate([c,xy,w,h,cls], -1).reshape(N, S*S, 6))
         return jnp.array(ret).reshape(N, S*S, B, 6)
         return ret

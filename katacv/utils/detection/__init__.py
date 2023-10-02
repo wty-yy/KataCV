@@ -5,10 +5,13 @@ import jax, jax.numpy as jnp
 
 def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | np.ndarray, text="", fontsize=8, box_color='red'):
     """
-    params::box_params: (x, y, w, h) is proportion of the image, so we need `image_shape`
-        - (x, y) is the center of the box.
-        - (w, h) is the width and height of the box.
-    params::text: The text display in the upper left of the bounding box.
+    (Matplotlib) Plot the bounding box with `box_params` in `ax`.
+    ### Params
+    `box_params`: (x, y, w, h) is proportion of the image, so we need `image_shape`
+    - (x, y) is the center of the box.
+    - (w, h) is the width and height of the box.
+
+    `text`: The text display in the upper left of the bounding box.
     """
     if type(box_params) != np.ndarray: box_params = np.array(box_params)
     assert(box_params.size == 4)
@@ -23,6 +26,39 @@ def plot_box(ax: plt.Axes, image_shape: tuple[int], box_params: tuple[float] | n
     bbox_props = dict(boxstyle="round, pad=0.2", edgecolor=box_color, facecolor=box_color)
     if len(text) != 0:
         ax.text(x_min+2, y_min, text, color='white', backgroundcolor=box_color, va='bottom', ha='left', fontsize=fontsize, bbox=bbox_props)
+
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
+def plot_boxes_PIL(image:Image.Image, box_params: tuple, text="", fontsize=14, box_color='red', fontpath="../fonts/Consolas.ttf"):
+    """
+    (PIL) Plot the bounding box with `box_params` in `image`.
+    ### Params
+    `box_params`: (x, y, w, h) is proportion of the image, so we need `image_shape`
+    - (x, y) is the center of the box.
+    - (w, h) is the width and height of the box.
+
+    `text`: The text display in the upper left of the bounding box.
+
+    `fontpath`: The relative to path `katacv/utils/detection`
+    """
+    fontpath = str(Path(__file__).parent.joinpath(fontpath).resolve())
+    draw = ImageDraw.Draw(image)
+    params, shape = box_params, image.size
+    x_min = int(shape[0]*(params[0]-params[2]/2))
+    y_min = int(shape[1]*(params[1]-params[3]/2))
+    w = int(shape[0] * params[2])
+    h = int(shape[1] * params[3])
+    if box_color == 'red': box_color = (255, 0, 0)
+    draw.rectangle([x_min, y_min, x_min+w, y_min+h], outline=box_color, width=2)
+
+    font_color = (255,255,255)  # white
+    font = ImageFont.truetype(fontpath, fontsize)
+    w_text, h_text= font.getsize(text)
+    x_text = x_min
+    y_text = y_min - h_text if y_min > h_text else y_min
+    draw.rounded_rectangle([x_text, y_text, x_text+w_text, y_text+h_text], radius=1.5, fill=box_color)
+    draw.text((x_text, y_text), text, fill=font_color, font=font)
+    return image
 
 def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):
     """
@@ -53,7 +89,7 @@ BoxType = jax.Array
 @partial(jax.jit, static_argnums=[2,3,4])
 def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: bool = False, EPS: float = 1e-6):
     """
-    (JAX)Calculate the intersection over union for box1 and box2.
+    (JAX) Calculate the intersection over union for box1 and box2.
     @params::box1, box2 shapes are (N,4), where the last dim x,y,w,h under the **same scale**:
         (x, y): the center of the box.
         (w, h): the width and the height of the box.
@@ -77,9 +113,46 @@ def iou(box1: BoxType, box2: BoxType, scale: list | jax.Array = None, keepdim: b
     if keepdim: ret = ret[...,jnp.newaxis]
     return ret
 
+from katacv.utils.detection import iou
+@jax.jit
+def iou_multiply(boxes1, boxes2):
+    """
+    Return the IOU after pairwise combination `boxes1` and `boxes2`
+    @params::`boxes1.shape=(N,4), boxes2.shape=(M,4)`.
+    @return::`shape=(N,M)`, the `(i,j)` element of the return matrix is the IOU of `boxes1[i]` and `boxes2[j]`.
+    """
+    N = boxes1.shape[0]
+    return jnp.stack([iou(boxes1[i], boxes2) for i in range(N)], axis=0)
+
+@partial(jax.jit, static_argnums=[3,4])
+def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, B=3):
+    """
+    (JAX) Non-Maximum Suppression with `iou_threshold` and `conf_threhold`.
+    Make sure to keep the matrices in same size, we must give the maximum number of bounding boxes in an image.
+    ### Params
+    - `boxes.shape=(N,5)`, last dim is `(c,x,y,w,h,cls)`
+    - `iou_threshold`: The threshold of maximum iou in NMS.
+    - `conf_threshold`: The threshold of minimum confidence in NMS.
+    - `max_num_box`: The maximum number of bounding boxes in an image.
+    - `B`: The maximum number of bounding boxes in one scale.
+    ### Return
+    - `boxes`: The confidence top `max_num_box * B`.
+    - `mask`: The mask of the boxes after NMS.
+    ### Useage
+    `boxes, mask = nms_boxes_and_mask(boxes, iou_threshold, conf_threshold)`
+
+    `boxes = boxes[mask]`
+    """
+    M = max_num_box * B
+    sort_idxs = jnp.argsort(boxes[:,0])[::-1][:M]  # only consider the first `M`
+    boxes = boxes[sort_idxs]
+    ious = iou_multiply(boxes[:,1:5], boxes[:,1:5])
+    mask = (boxes[:,0] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
+    return boxes, mask
+
 def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
     """
-    (Numpy)Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
+    (Numpy) Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
     @params::`boxes.shape=(M,6)` and last dim is `(c,x,y,w,h,cls)`.
     @return::the boxes after NMS.
     """
