@@ -17,15 +17,17 @@ def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
     # parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv3/YOLOv3-COCO-0080",
-    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/YOLOv3/YOLOv3-COCO-0050",
+    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/YOLOv3/YOLOv3-PASCAL-0080",  # change
         help="the original model weights path")
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()
     print(f"Loading the state from '{str(args.path)}'...")
-    state = get_yolov3_state(get_args_and_writer(no_writer=True))  # change
-    full_path = args.path  # change
+    yolov3_args = get_args_and_writer(no_writer=True, input_args="")
+    yolov3_args.C = 20  # change
+    state = get_yolov3_state(yolov3_args)
+    full_path = args.path
     with open(full_path, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
     print(f"Load weights from '{str(full_path)}' successfully!")
