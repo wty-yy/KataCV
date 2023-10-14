@@ -1,9 +1,10 @@
 import jax, jax.numpy as jnp
 import optax
+from functools import partial
 
 # concatenate is slow, real slow, faster twice!
 
-@jax.jit
+@partial(jax.jit, static_argnums=[2,3])
 def ctc_loss(logits, labels, blank_id=0, log_eps=-1e5):
     logprobs = jax.nn.log_softmax(logits)
     B, T, C = logits.shape
