@@ -7,17 +7,21 @@
 @Blog    : https://wty-yy.space/
 @Desc    : 
 '''
+import os, sys
+sys.path.append(os.getcwd())
 
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.related_pkgs.utility import *
 
 from katacv.ocr.cnn_model import TrainState
 from ctc_loss.ctc_loss import ctc_loss
+@partial(jax.jit, static_argnames=['train', 'blank_id'])
 def model_step(
     state: TrainState,
     x: jax.Array,
     y: jax.Array,
     train: bool,
+    blank_id: int = 0
 ):
     def loss_fn(params):
         logits, updates = state.apply_fn(
@@ -30,15 +34,35 @@ def model_step(
         )
         regular = args.weight_decay * weight_l2
         loss = ctc_loss(logits, y).mean() + regular
-        return loss, updates
+        return loss, (updates, logits)
     
     if train:
-        (loss, updates), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
+        (loss, (updates, logits)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
         state = state.apply_gradients(grads=grads)
         state = state.replace(batch_stats=updates['batch_stats'])
     else:
-        loss, _ = loss_fn(state.params)
-    return state, (loss,)
+        loss, (_, logits) = loss_fn(state.params)
+
+    pred_probs = jax.nn.softmax(logits)
+    pred_idxs = jnp.argmax(pred_probs, -1)  # (B,T)
+    mask = (
+        (pred_idxs != jnp.pad(pred_idxs[:,:-1], ((0,0),(1,0)))) &
+        (pred_idxs != blank_id)
+    )
+    acc_params = (pred_idxs, mask)
+
+    return state, acc_params, loss
+
+import numpy as np
+def calc_accuracy(y, acc_params, max_len):
+    pred_idxs, mask = acc_params
+    y_pred = np.zeros((pred_idxs.shape[0], max_len), dtype=np.int32)
+    for i in range(pred_idxs.shape[0]):
+        seq = pred_idxs[i][mask[i]]
+        N = min(max_len, seq.size)
+        y_pred[i,:N] = seq[:N]
+    acc = np.mean((y_pred == y).all(-1))
+    return acc
 
 if __name__ == '__main__':
     ### Initialize arguments and tensorboard writer ###
@@ -76,45 +100,42 @@ if __name__ == '__main__':
             for x, y in tqdm(train_ds, total=train_ds_size):
                 x, y = x.numpy(), y.numpy()
                 global_step += 1
-                state, metrics = model_step(state, x, y, train=True)
+                state, acc_params, loss = model_step(state, x, y, train=True)
+                acc = calc_accuracy(y, jax.device_get(acc_params), args.max_label_length)
                 logs.update(
-                    ['loss_train'],
-                    metrics
+                    ['loss_train', 'acc_train'],
+                    [loss, acc]
                 )
                 if global_step % args.write_tensorboard_freq == 0:
                     logs.update(
-                        ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
+                        ['SPS', 'SPS_avg', 'epoch'],
                         [
                             args.write_tensorboard_freq/logs.get_time_length(),
                             global_step/(time.time()-start_time),
                             epoch,
-                            args.learning_rate_fn(state.step)
                         ]
                     )
-                    logs.start_time = time.time()
                     logs.writer_tensorboard(writer, global_step)
+                    logs.reset()
             print("validating...")
             logs.reset()
             for x, y in tqdm(val_ds, total=val_ds_size):
                 x, y = x.numpy(), y.numpy()
-                global_step += 1
-                _, metrics = model_step(state, x, y, train=False)
+                _, acc_params, loss = model_step(state, x, y, train=False)
+                acc = calc_accuracy(y, jax.device_get(acc_params), args.max_label_length)
                 logs.update(
-                    ['loss_val'],
-                    metrics
+                    ['loss_val', 'acc_val'],
+                    [loss, acc]
                 )
-                if global_step % args.write_tensorboard_freq == 0:
-                    logs.update(
-                        ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
-                        [
-                            args.write_tensorboard_freq/logs.get_time_length(),
-                            global_step/(time.time()-start_time),
-                            epoch,
-                            args.learning_rate_fn(state.step)
-                        ]
-                    )
-                    logs.start_time = time.time()
-                    logs.writer_tensorboard(writer, global_step)
+            logs.update(
+                ['SPS', 'SPS_avg', 'epoch'],
+                [
+                    args.write_tensorboard_freq/logs.get_time_length(),
+                    global_step/(time.time()-start_time),
+                    epoch,
+                ]
+            )
+            logs.writer_tensorboard(writer, global_step)
             
             ### Save weights ###
             if epoch % args.save_weights_freq == 0:

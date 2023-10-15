@@ -1,7 +1,7 @@
 from katacv.utils.related_pkgs.utility import *
 
 ### Dataset ###
-path_dataset_tfrecord = Path("/home/wty/Coding/datasets/mjsynth/tfrecord")
+path_dataset_tfrecord = Path("/home/yy/Coding/datasets/mjsynth/tfrecord")
 batch_size = 64
 shuffle_size = batch_size * 16
 image_width = 100
@@ -18,7 +18,6 @@ train_dataset_size = DATASET_SIZE['mjsynth']['train']
 steps_per_epoch = train_dataset_size // batch_size
 
 ### Training ###
-total_epochs = 100
+total_epochs = 3
 learning_rate = 1e-4
 weight_decay = 1e-4
-warmup_epochs = 8

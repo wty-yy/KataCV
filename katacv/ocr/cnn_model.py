@@ -53,34 +53,11 @@ class OCR_CNN(nn.Module):
         x = conv(filters=self.class_num, kernel=(1,1), use_norm=False, use_act=False)(x)
         return x[:,0,...]  # (N,W//4-1,encoder_num)
 
-from katacv.ocr.parser import OCRArgs
-def get_learning_rate_fn(args: OCRArgs):
-    """
-    - `args.learning_rate`: the target warming up learning rate.
-    - `args.warmup_epochs`: the epochs get to the target learning rate.
-    - `args.steps_per_epoch`: number of the steps to each per epoch.
-    """
-    warmup_fn = optax.linear_schedule(
-        init_value=0.0,
-        end_value=args.learning_rate,
-        transition_steps=args.warmup_epochs * args.steps_per_epoch
-    )
-    cosine_epoch = args.total_epochs - args.warmup_epochs
-    cosine_fn = optax.cosine_decay_schedule(
-        init_value=args.learning_rate,
-        decay_steps=cosine_epoch * args.steps_per_epoch
-    )
-    schedule_fn = optax.join_schedules(
-        schedules=[warmup_fn, cosine_fn],
-        boundaries=[args.warmup_epochs * args.steps_per_epoch]
-    )
-    return schedule_fn
-
 class TrainState(train_state.TrainState):
     batch_stats: dict
 
+from katacv.ocr.parser import OCRArgs
 def get_ocr_cnn_state(args: OCRArgs, verbose=False) -> TrainState:
-    args.learning_rate_fn = get_learning_rate_fn(args)
     model = OCR_CNN(class_num=args.class_num)
     key = jax.random.PRNGKey(args.seed)
     if verbose: print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
@@ -88,7 +65,7 @@ def get_ocr_cnn_state(args: OCRArgs, verbose=False) -> TrainState:
     return TrainState.create(
         apply_fn=model.apply,
         params=variables['params'],
-        tx=optax.adam(learning_rate=args.learning_rate_fn),
+        tx=optax.adam(learning_rate=args.learning_rate),
         batch_stats=variables['batch_stats']
     )
 

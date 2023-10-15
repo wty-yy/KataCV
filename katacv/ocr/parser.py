@@ -8,9 +8,8 @@ class OCRArgs(CVArgs):
     max_label_length: int;
     ch2idx: dict; idx2ch: dict
     ### Training ###
-    warmup_epochs: int
-    steps_per_epoch: int
-    learning_rate_fn: Callable
+    # warmup_epochs: int
+    # steps_per_epoch: int
 
 def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, SummaryWriter] | OCRArgs:
     parser = Parser(model_name="OCR-CNN", wandb_project_name="mjsynth")
@@ -36,8 +35,6 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, Summ
         help="the maximum learning rate of training")
     parser.add_argument("--weight-decay", type=float, default=const.weight_decay,
         help="the coef of l2 weight penalty")
-    parser.add_argument("--warmup-epochs", type=float, default=const.warmup_epochs,
-        help="the epochs of warming up the learning rate")
     args = parser.get_args(input_args)
 
     args.character_set = [0] + sorted(ord(c) for c in list(args.character_set))
@@ -45,7 +42,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, Summ
     args.ch2idx = {args.character_set[i]: i for i in range(len(args.character_set))}
     args.idx2ch = dict(enumerate(args.character_set))
 
-    args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+    # args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
     args.write_tensorboard_freq = 100
     args.input_shape = (args.batch_size, args.image_height, args.image_width, 1)
     args.steps_per_epoch = const.steps_per_epoch
