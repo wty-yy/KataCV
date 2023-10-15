@@ -19,5 +19,5 @@ steps_per_epoch = train_dataset_size // batch_size
 
 ### Training ###
 total_epochs = 20
-learning_rate = 1e-3
+learning_rate = 1e-4
 weight_decay = 1e-4
