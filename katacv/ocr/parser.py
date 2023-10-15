@@ -12,7 +12,8 @@ class OCRArgs(CVArgs):
     # steps_per_epoch: int
 
 def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, SummaryWriter] | OCRArgs:
-    parser = Parser(model_name="OCR-CNN", wandb_project_name="mjsynth")
+    # parser = Parser(model_name="OCR-CNN", wandb_project_name="mjsynth")
+    parser = Parser(model_name="OCR-CRNN", wandb_project_name="mjsynth")
     ### Dataset config ###
     parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=const.path_dataset_tfrecord,
         help="the tfrecord directory of the mjsynth dataset")

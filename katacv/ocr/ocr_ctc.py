@@ -74,7 +74,11 @@ if __name__ == '__main__':
 
     ### Initialize model state ###
     from katacv.ocr.cnn_model import get_ocr_cnn_state
-    state = get_ocr_cnn_state(args)
+    from katacv.ocr.crnn_model import get_ocr_crnn_state
+    if args.model_name == 'OCR-CNN':
+        state = get_ocr_cnn_state(args)
+    elif args.model_name == 'OCR-CRNN':
+        state = get_ocr_crnn_state(args)
 
     ### Load weights ###
     from katacv.utils import load_weights

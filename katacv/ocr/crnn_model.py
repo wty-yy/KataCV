@@ -33,7 +33,7 @@ class ResBlock(nn.Module):
         x = self.conv(filters=2*n, kernel=(3,3), use_act=False)(x)
         return residue + x
 
-class OCR_CNN(nn.Module):
+class OCR_CRNN(nn.Module):
     class_num: int
     stage_size = [1, 1, 2, 2]
     act: Callable = mish
@@ -49,16 +49,19 @@ class OCR_CNN(nn.Module):
             x = conv(filters=x.shape[-1]*2, kernel=(3,3), strides=strides)(x)
             for _ in range(block_num):
                 x = block()(x)
-        x = conv(filters=x.shape[-1], kernel=(2,2), padding=((0,0),(0,0)))(x)  # (B,1,15,512)
-        x = conv(filters=self.class_num, kernel=(1,1), use_norm=False, use_act=False)(x)
-        return x[:,0,...]  # (B,W//4-1,class_num)
+        x = conv(filters=x.shape[-1], kernel=(2,2), padding=((0,0),(0,0)))(x)  # (B,1,24,512)
+        x = x[:,0,:,:]  # (B,T,features)
+        x = nn.RNN(nn.OptimizedLSTMCell(256))(x)
+        x = nn.RNN(nn.OptimizedLSTMCell(256))(x)
+        x = nn.Dense(features=self.class_num)(x)
+        return x  # (B,W//4-1,class_num)
 
 class TrainState(train_state.TrainState):
     batch_stats: dict
 
 from katacv.ocr.parser import OCRArgs
-def get_ocr_cnn_state(args: OCRArgs, verbose=False) -> TrainState:
-    model = OCR_CNN(class_num=args.class_num)
+def get_ocr_crnn_state(args: OCRArgs, verbose=False) -> TrainState:
+    model = OCR_CRNN(class_num=args.class_num)
     key = jax.random.PRNGKey(args.seed)
     if verbose: print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
     variables = model.init(key, jnp.empty(args.input_shape), train=False)
@@ -72,7 +75,7 @@ def get_ocr_cnn_state(args: OCRArgs, verbose=False) -> TrainState:
 if __name__ == '__main__':
     from katacv.ocr.parser import get_args_and_writer
     args = get_args_and_writer(no_writer=True)
-    state = get_ocr_cnn_state(args, verbose=True)
+    state = get_ocr_crnn_state(args, verbose=True)
     x = jnp.empty(args.input_shape)
     logits, updates = state.apply_fn(
         {'params': state.params, 'batch_stats': state.batch_stats},
