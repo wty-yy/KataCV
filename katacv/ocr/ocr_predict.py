@@ -13,10 +13,10 @@ sys.path.append(os.getcwd())
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.related_pkgs.utility import *
 
-from katacv.ocr.cnn_model import TrainState
+from katacv.ocr.crnn_model import TrainState
 
 @partial(jax.jit, static_argnums=2)
-def predict(state: TrainState, x, blank_id=0):
+def predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
     logits = state.apply_fn(
         {'params': state.params, 'batch_stats': state.batch_stats},
         x, train=False
@@ -30,13 +30,30 @@ def predict(state: TrainState, x, blank_id=0):
     return pred_idxs, mask
 
 import numpy as np
-def apply_mask(pred_idxs, mask, max_len=23):
+def apply_mask(pred_idxs, mask, max_len=23) -> jax.Array:
     y_pred = np.zeros((pred_idxs.shape[0], max_len), dtype=np.int32)
     for i in range(pred_idxs.shape[0]):
         seq = pred_idxs[i][mask[i]]
         N = min(max_len, seq.size)
         y_pred[i,:N] = seq[:N]
     return y_pred
+
+def predict_result(
+        state: TrainState,
+        x: jax.Array,
+        max_len: int,
+        idx2ch: dict
+    ) -> Sequence[str]:
+    pred_idx, mask = predict(state, x)
+    y_pred = apply_mask(pred_idx, mask, max_len)
+    pred_seq = []
+    for i in range(y_pred.shape[0]):
+        seq = []
+        for j in range(y_pred.shape[1]):
+            if y_pred[i,j] == 0: break
+            seq.append(chr(idx2ch[y_pred[i,j]]))
+        pred_seq.append("".join(seq))
+    return pred_seq
 
 if __name__ == '__main__':
     from katacv.ocr.parser import get_args_and_writer
