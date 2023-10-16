@@ -74,11 +74,14 @@ if __name__ == '__main__':
 
     ### Initialize model state ###
     from katacv.ocr.cnn_model import get_ocr_cnn_state
-    from katacv.ocr.crnn_model import get_ocr_crnn_state
+    from katacv.ocr.crnn_model_lstm import get_ocr_crnn_lstm_state
+    from katacv.ocr.crnn_model_bilstm import get_ocr_crnn_bilstm_state
     if args.model_name == 'OCR-CNN':
         state = get_ocr_cnn_state(args)
-    elif args.model_name == 'OCR-CRNN':
-        state = get_ocr_crnn_state(args)
+    elif args.model_name == 'OCR-CRNN-LSTM':
+        state = get_ocr_crnn_lstm_state(args)
+    elif args.model_name == 'OCR-CRNN-BiLSTM':
+        state = get_ocr_crnn_bilstm_state(args)
 
     ### Load weights ###
     from katacv.utils import load_weights
@@ -112,11 +115,12 @@ if __name__ == '__main__':
                 )
                 if global_step % args.write_tensorboard_freq == 0:
                     logs.update(
-                        ['SPS', 'SPS_avg', 'epoch'],
+                        ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
                         [
                             args.write_tensorboard_freq/logs.get_time_length(),
                             global_step/(time.time()-start_time),
                             epoch,
+                            args.learning_rate_fn(state.step),
                         ]
                     )
                     logs.writer_tensorboard(writer, global_step)
@@ -128,17 +132,9 @@ if __name__ == '__main__':
                 _, acc_params, loss = model_step(state, x, y, train=False)
                 acc = calc_accuracy(y, jax.device_get(acc_params), args.max_label_length)
                 logs.update(
-                    ['loss_val', 'acc_val'],
-                    [loss, acc]
+                    ['loss_val', 'acc_val', 'epoch', 'learning_rate'],
+                    [loss, acc, epoch, args.learning_rate_fn(state.step)]
                 )
-            logs.update(
-                ['SPS', 'SPS_avg', 'epoch'],
-                [
-                    args.write_tensorboard_freq/logs.get_time_length(),
-                    global_step/(time.time()-start_time),
-                    epoch,
-                ]
-            )
             logs.writer_tensorboard(writer, global_step)
             
             ### Save weights ###

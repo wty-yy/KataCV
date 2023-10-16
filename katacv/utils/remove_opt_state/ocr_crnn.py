@@ -10,7 +10,7 @@ def convert_bytes(size):
 
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
-from katacv.ocr.crnn_model import get_ocr_crnn_state  # change
+from katacv.ocr.crnn_model_lstm import get_ocr_crnn_lstm_state  # change
 from katacv.ocr.parser import get_args_and_writer
 
 def parse_args():
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     args = parse_args()
     print(f"Loading the state from '{str(args.path)}'...")
     ocr_args = get_args_and_writer(no_writer=True, input_args="")  # change
-    state = get_ocr_crnn_state(ocr_args)
+    state = get_ocr_crnn_lstm_state(ocr_args)
     full_path = args.path
     with open(full_path, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
