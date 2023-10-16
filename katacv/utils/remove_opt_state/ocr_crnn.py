@@ -16,7 +16,8 @@ from katacv.ocr.parser import get_args_and_writer
 def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/OCR/OCR-CRNN-0020",  # change
+    # parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/OCR/OCR-CRNN-0020",  # change
+    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/OCR/OCR-CRNN-0020",  # change
         help="the original model weights path")
     return parser.parse_args()
 
