@@ -10,6 +10,7 @@ logs = Logs(
         'SPS': MeanMetric(),
         'SPS_avg': MeanMetric(),
         'epoch': 0,
+        'learning_rate': 0,
     },
     folder2name={
         'metrics': [
@@ -22,6 +23,7 @@ logs = Logs(
             'SPS',
             'SPS_avg',
             'epoch',
+            'learning_rate',
         ]
     }
 )

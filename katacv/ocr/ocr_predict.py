@@ -13,7 +13,7 @@ sys.path.append(os.getcwd())
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.related_pkgs.utility import *
 
-from katacv.ocr.crnn_model import TrainState
+from katacv.ocr.crnn_model_lstm import TrainState
 
 @partial(jax.jit, static_argnums=2)
 def predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
