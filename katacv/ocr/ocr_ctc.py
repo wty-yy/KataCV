@@ -6,6 +6,9 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
+In `parser.py`:
+`model_name`: `OCR-CNN`, `OCR-CRNN-LSTM`, `OCR-CRNN-BiLSTM`
+``
 '''
 import os, sys
 sys.path.append(os.getcwd())

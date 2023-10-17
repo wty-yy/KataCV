@@ -27,7 +27,8 @@ def predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
         (pred_idxs != jnp.pad(pred_idxs[:,:-1], ((0,0),(1,0)))) &
         (pred_idxs != blank_id)
     )
-    return pred_idxs, mask
+    conf = jnp.prod(pred_probs.max(-1), -1)  # (B,) confidence
+    return pred_idxs, mask, conf
 
 import numpy as np
 def apply_mask(pred_idxs, mask, max_len=23) -> jax.Array:
@@ -44,7 +45,7 @@ def predict_result(
         max_len: int,
         idx2ch: dict
     ) -> Sequence[str]:
-    pred_idx, mask = predict(state, x)
+    pred_idx, mask, conf = predict(state, x)
     y_pred = apply_mask(pred_idx, mask, max_len)
     pred_seq = []
     for i in range(y_pred.shape[0]):
@@ -53,7 +54,7 @@ def predict_result(
             if y_pred[i,j] == 0: break
             seq.append(chr(idx2ch[y_pred[i,j]]))
         pred_seq.append("".join(seq))
-    return pred_seq
+    return pred_seq, conf
 
 if __name__ == '__main__':
     from katacv.ocr.parser import get_args_and_writer

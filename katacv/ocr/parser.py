@@ -11,6 +11,7 @@ class OCRArgs(CVArgs):
     warmup_epochs: int
     steps_per_epoch: int
     learning_rate_fn: Callable
+    momentum: float
 
 def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, SummaryWriter] | OCRArgs:
     # parser = Parser(model_name="OCR-CNN", wandb_project_name="mjsynth")
@@ -38,8 +39,10 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, Summ
         help="the maximum learning rate of training")
     parser.add_argument("--weight-decay", type=float, default=const.weight_decay,
         help="the coef of l2 weight penalty")
-    parser.add_argument("--warmup-epochs", type=float, default=const.weight_decay,
+    parser.add_argument("--warmup-epochs", type=int, default=const.warmup_epochs,
         help="the warming up epochs of cosine learning rate")
+    # parser.add_argument("--momentum", type=float, default=const.momentum,
+    #     help="the momentum of SGD optimizer")
     args = parser.get_args(input_args)
 
     args.character_set = [0] + sorted(ord(c) for c in list(args.character_set))
