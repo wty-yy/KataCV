@@ -16,7 +16,7 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.ocr.crnn_model_lstm import TrainState
 
 @partial(jax.jit, static_argnums=2)
-def predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
+def _predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
     logits = state.apply_fn(
         {'params': state.params, 'batch_stats': state.batch_stats},
         x, train=False
@@ -27,17 +27,21 @@ def predict(state: TrainState, x, blank_id=0) -> Tuple[jax.Array, jax.Array]:
         (pred_idxs != jnp.pad(pred_idxs[:,:-1], ((0,0),(1,0)))) &
         (pred_idxs != blank_id)
     )
-    conf = jnp.prod(pred_probs.max(-1), -1)  # (B,) confidence
-    return pred_idxs, mask, conf
+    pred_probs = pred_probs.max(-1)
+    return pred_idxs, pred_probs, mask
 
 import numpy as np
-def apply_mask(pred_idxs, mask, max_len=23) -> jax.Array:
-    y_pred = np.zeros((pred_idxs.shape[0], max_len), dtype=np.int32)
+def apply_mask(pred_idxs, pred_probs, mask, max_len=23) -> jax.Array:
+    B = pred_idxs.shape[0]
+    y_pred = np.zeros((B, max_len), dtype=np.int32)
+    p_pred = np.zeros((B, max_len), dtype=np.float32)
     for i in range(pred_idxs.shape[0]):
         seq = pred_idxs[i][mask[i]]
+        probs = pred_probs[i][mask[i]]
         N = min(max_len, seq.size)
         y_pred[i,:N] = seq[:N]
-    return y_pred
+        p_pred[i,:N] = probs[:N]
+    return y_pred, p_pred
 
 def predict_result(
         state: TrainState,
@@ -45,16 +49,19 @@ def predict_result(
         max_len: int,
         idx2ch: dict
     ) -> Sequence[str]:
-    pred_idx, mask, conf = predict(state, x)
-    y_pred = apply_mask(pred_idx, mask, max_len)
-    pred_seq = []
+    pred_idx, pred_probs, mask = _predict(state, x)
+    y_pred, p_pred = apply_mask(pred_idx, pred_probs, mask, max_len)
+    pred_seq, pred_probs = [], []
     for i in range(y_pred.shape[0]):
-        seq = []
+        seq, prob = [], 1.0
         for j in range(y_pred.shape[1]):
             if y_pred[i,j] == 0: break
             seq.append(chr(idx2ch[y_pred[i,j]]))
+            prob *= p_pred[i,j]
+        if len(seq) == 0: prob = 0.0
         pred_seq.append("".join(seq))
-    return pred_seq, conf
+        pred_probs.append(prob)
+    return pred_seq, pred_probs
 
 if __name__ == '__main__':
     from katacv.ocr.parser import get_args_and_writer
@@ -70,7 +77,7 @@ if __name__ == '__main__':
     ds, ds_size = ds_builder.get_dataset('8examples')
     for x, y in ds:
         x = x.numpy(); y = y.numpy()
-        pred_idxs, mask = predict(state, x)
+        pred_idxs, mask = _predict(state, x)
         y_pred = apply_mask(jax.device_get(pred_idxs), jax.device_get(mask))
         print(y_pred, y)
         print("acc:", np.mean((y_pred == y).all(-1)))
