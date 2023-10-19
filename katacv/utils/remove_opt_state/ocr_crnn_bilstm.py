@@ -17,14 +17,15 @@ def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
     # parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/OCR/OCR-CRNN-0020",  # change
-    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/OCR/OCR-CRNN-BiLSTM-0020",  # change
+    # parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/OCR/OCR-CRNN-BiLSTM-0020",  # change
+    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/OCR/OCR-CRNN-BiLSTM-lower-0020",  # change
         help="the original model weights path")
     return parser.parse_args()
 
 if __name__ == '__main__':
     args = parse_args()
     print(f"Loading the state from '{str(args.path)}'...")
-    ocr_args = get_args_and_writer(no_writer=True, input_args="")  # change
+    ocr_args = get_args_and_writer(no_writer=True, input_args=["--use-lower"])  # change
     state = get_ocr_crnn_bilstm_state(ocr_args)
     full_path = args.path
     with open(full_path, 'rb') as file:
