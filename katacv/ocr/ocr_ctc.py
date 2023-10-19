@@ -79,11 +79,11 @@ if __name__ == '__main__':
     from katacv.ocr.cnn_model import get_ocr_cnn_state
     from katacv.ocr.crnn_model_lstm import get_ocr_crnn_lstm_state
     from katacv.ocr.crnn_model_bilstm import get_ocr_crnn_bilstm_state
-    if args.model_name == 'OCR-CNN':
+    if 'OCR-CNN' in args.model_name:
         state = get_ocr_cnn_state(args)
-    elif args.model_name == 'OCR-CRNN-LSTM':
+    elif 'OCR-CRNN-LSTM' in args.model_name:
         state = get_ocr_crnn_lstm_state(args)
-    elif args.model_name == 'OCR-CRNN-BiLSTM':
+    elif 'OCR-CRNN-BiLSTM' in args.model_name:
         state = get_ocr_crnn_bilstm_state(args)
 
     ### Load weights ###
@@ -97,8 +97,8 @@ if __name__ == '__main__':
     ### Initialize dataset ###
     from katacv.utils.ocr.build_dataset import DatasetBuilder
     ds_builder = DatasetBuilder(args)
-    train_ds, train_ds_size = ds_builder.get_dataset('train')
-    val_ds, val_ds_size = ds_builder.get_dataset('val')
+    train_ds, train_ds_size = ds_builder.get_dataset('train', use_lower=args.use_lower)
+    val_ds, val_ds_size = ds_builder.get_dataset('val', use_lower=args.use_lower)
 
     ### Train and evaluate ###
     start_time, global_step = time.time(), 0

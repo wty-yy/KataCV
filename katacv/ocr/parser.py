@@ -1,5 +1,5 @@
 from katacv.utils.related_pkgs.utility import *
-from katacv.utils.parser import Parser, CVArgs, cvt2Path, SummaryWriter, datetime
+from katacv.utils.parser import Parser, CVArgs, cvt2Path, SummaryWriter, datetime, str2bool
 import katacv.ocr.constant as const
 
 class OCRArgs(CVArgs):
@@ -7,6 +7,7 @@ class OCRArgs(CVArgs):
     class_num: int;
     max_label_length: int;
     ch2idx: dict; idx2ch: dict
+    use_lower: bool
     ### Training ###
     warmup_epochs: int
     steps_per_epoch: int
@@ -32,6 +33,8 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, Summ
         help="the maximum length of the labels")
     parser.add_argument("--character-set", nargs='+', default=const.character_set,
         help="the character set of the dataset")
+    parser.add_argument("--use-lower", type=str2bool, default=False, const=True, nargs='?',
+        help="if taggled, the lowercase arabic letters will be used")
     ### Training config ###
     parser.add_argument("--total-epochs", type=int, default=const.total_epochs,
         help="the total epochs for training the model")
@@ -43,7 +46,12 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[OCRArgs, Summ
         help="the warming up epochs of cosine learning rate")
     # parser.add_argument("--momentum", type=float, default=const.momentum,
     #     help="the momentum of SGD optimizer")
-    args = parser.get_args(input_args)
+    args = parser.parse_args(input_args)
+
+    if args.use_lower:
+        args.model_name += "-lower"
+        args.character_set = {c.lower() for c in args.character_set}
+    parser.check_args(args)
 
     args.character_set = [0] + sorted(ord(c) for c in list(args.character_set))
     args.class_num = len(args.character_set)

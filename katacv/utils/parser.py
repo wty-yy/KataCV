@@ -64,10 +64,13 @@ class Parser(argparse.ArgumentParser):
             help="if taggled, start training the model")
         self.add_argument("--evaluate", type=str2bool, default=False, const=True, nargs='?',
             help="if taggled, start evaluating the model")
-        
-    def get_args(self, input_args=None) -> CVArgs:
-        args = self.parse_args(input_args)
-
+    
+    @staticmethod
+    def check_args(args):
+        """
+        If you need change `args.model_name` after `parse_args()`, then you need this function
+        to build related log directories.
+        """
         if args.train and args.evaluate:
             raise Exception("Error: can't both train and evaluate")
 
@@ -75,6 +78,10 @@ class Parser(argparse.ArgumentParser):
         args.path_cp = args.path_logs.joinpath(args.model_name+"-checkpoints")
         args.path_cp.mkdir(exist_ok=True)
         args.run_name = f"{args.model_name}__load_{args.load_id}__lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
+        
+    def get_args(self, input_args=None) -> CVArgs:
+        args = self.parse_args(input_args)
+        self.check_args(args)
         return args
     
     @staticmethod

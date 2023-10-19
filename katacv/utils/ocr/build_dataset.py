@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import NamedTuple
 import tensorflow as tf
 
-def decode_example(target_size, N, ch2idx: tf.lookup.StaticVocabularyTable, use_aug):
+def decode_example(target_size, N, ch2idx: tf.lookup.StaticVocabularyTable, use_aug, use_lower):
     def thunk(example):
         feature_description = {
             'image': tf.io.FixedLenFeature([], tf.string),
@@ -29,7 +29,8 @@ def decode_example(target_size, N, ch2idx: tf.lookup.StaticVocabularyTable, use_
         }
         example = tf.io.parse_single_example(example, feature_description)
         image = tf.io.decode_jpeg(example['image'], channels=1)
-        label = tf.cast(tf.strings.unicode_decode(example['label'], 'UTF-8'), tf.int64)
+        label = tf.strings.lower(example['label']) if use_lower else example['label']
+        label = tf.cast(tf.strings.unicode_decode(label, 'UTF-8'), tf.int64)
 
         image = tf.image.resize(image, target_size)
         label = ch2idx.lookup(label)
@@ -71,9 +72,9 @@ class DatasetBuilder():
             num_oov_buckets=1
         )
     
-    def get_dataset(self, subset='train', repeat=1, shuffle=True, use_aug=True):
+    def get_dataset(self, subset='train', repeat=1, shuffle=True, use_aug=True, use_lower=False):
         ds_tfrecord = tf.data.TFRecordDataset(str(self.path_dataset_tfrecord.joinpath(f"{self.name}-{subset}.tfrecord")))
-        ds = ds_tfrecord.map(decode_example(self.image_size, self.N, self.ch2idx, use_aug)).repeat(repeat)
+        ds = ds_tfrecord.map(decode_example(self.image_size, self.N, self.ch2idx, use_aug, use_lower)).repeat(repeat)
         if shuffle: ds = ds.shuffle(self.shuffle_size)
         ds = ds.batch(self.batch_size, drop_remainder=True)
         return ds, DATASET_SIZE[self.name][subset] * repeat // self.batch_size
