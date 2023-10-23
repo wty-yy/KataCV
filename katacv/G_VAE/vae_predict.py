@@ -73,10 +73,49 @@ def show_image_change(x1, x2, n=10, name="image_change"):
   image.save(str(pred_args.path_figures.joinpath(name+'.jpg')))
   image.show()
 
+def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
+  distrib, _ = jax.device_get(predict(state, x))
+  mu, logsigma2 = distrib
+  sigma = np.sqrt(np.exp(logsigma2))
+  # print(np.sort(sigma, axis=-1)[0])
+  threshold_idx = int(sigma.shape[1]*(1-threshold_rate))
+  threshold = np.sort(sigma, axis=-1)[:, threshold_idx:threshold_idx+1]
+  delta = np.where(sigma >= threshold, sigma, 0)
+  plt.hist(sigma[0], bins=50)
+  plt.hist(delta[0][delta[0] > 0], bins=50)
+  plt.show()
+  # delta = delta / (delta**2).sum(-1)[:,None]
+  # delta = sigma / (sigma ** 2).sum(-1)[:,None]
+  # delta = sigma / sigma.sum(-1)[:,None]
+  print(mu.mean(), sigma.mean())
+  pos, neg = [], []
+  for i in range(n//2):
+    z = mu - i * delta * 0.5
+    aug = jax.device_get(predict(decoder_state, z))
+    aug = (aug - aug.min()) / (aug.max() - aug.min())
+    # aug = np.clip(aug, 0, 1)
+    neg.append(aug)
+    # image = np.concatenate([image, aug], axis=2)
+
+    z = mu + i * delta * 0.5
+    aug = jax.device_get(predict(decoder_state, z))
+    aug = (aug - aug.min()) / (aug.max() - aug.min())
+    # aug = np.clip(aug, 0, 1)
+    pos.append(aug)
+    # image = np.concatenate([image, aug], axis=2)
+  image = 1 - x  # mid: (B,N,N,1)
+  for aug in neg: image = np.concatenate([aug, image], axis=2)
+  for aug in pos: image = np.concatenate([image, aug], axis=2)
+  image = image.reshape((-1, *image.shape[-2:]))
+  image = (image[..., 0]*255).astype('uint8')
+  image = Image.fromarray(image)
+  image.save(str(pred_args.path_figures.joinpath(name+'.jpg')))
+  image.show()
+
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
-  vae_args = get_args_and_writer(no_writer=True)
+  vae_args = get_args_and_writer(no_writer=True, model_name="VAE")
   pred_args = get_args()
   vae_args.batch_size = pred_args.row * pred_args.column
   pred_args.path_figures = vae_args.path_logs.joinpath("figures")
@@ -101,16 +140,23 @@ if __name__ == '__main__':
     from katacv.utils.mini_data.mnist import load_mnist
     data = load_mnist(vae_args.path_dataset)
   ds_builder = DatasetBuilder(data, vae_args)
-  ds, ds_size = ds_builder.get_dataset(pred_args.subset)
+  ds, ds_size = ds_builder.get_dataset(pred_args.subset, shuffle=False)
 
   # show_orgin_pred()
   for i, (x, y) in enumerate(ds):
     if i == 3: break
     x1 = x.numpy()
     x2 = jnp.concatenate([x1[1:], x1[0:1]], axis=0)
-    show_image_change(
-      x1[:pred_args.row],
-      x2[:pred_args.row],
-      n=pred_args.column,
-      name=f"image_change_{i}"
+    # show_image_change(
+    #   x1[:pred_args.row],
+    #   x2[:pred_args.row],
+    #   n=pred_args.column,
+    #   name=f"image_change_{i}"
+    # )
+    rate = 0.1
+    show_image_aug(
+      x1[:10],
+      n=14,
+      name=f"image_aug_rate_{rate}_{i}",
+      threshold_rate=rate
     )

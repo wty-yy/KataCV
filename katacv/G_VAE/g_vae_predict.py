@@ -6,7 +6,11 @@
 @Version : 1.0
 @Blog  : https://wty-yy.space/
 @Desc  : 
-Predict G-VAE output.
+2023/10/22: Predict G-VAE output.
+2023/10/23: Fine-tuning:
+1. clip variance by rate: 0.05, 0.1, 0.3
+Optimize:
+1. change the output of the image layout
 '''
 import os, sys
 sys.path.append(os.getcwd())
@@ -157,7 +161,7 @@ if __name__ == '__main__':
     rate = 0.1
     show_image_aug(
       x1[:10],
-      n=10,
+      n=14,
       name=f"image_aug_rate_{rate}_{i}",
       threshold_rate=rate
     )

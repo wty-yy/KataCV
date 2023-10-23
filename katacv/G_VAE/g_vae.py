@@ -9,6 +9,8 @@
 2023/10/22: Implement G-VAE in JAX and train on MNIST dataset.
 2023/10/23: Fine-tuning:
 1. predict log(sigma) -> log(sigma^2)
+2. coef of kl loss: 2.5e-3
+3. image loss: l1 -> l2
 '''
 import os, sys
 sys.path.append(os.getcwd())

@@ -47,10 +47,3 @@ python katacv/utils/imagenet/check_tfrecord.py --path-origin-tfrecord path/your/
 python katacv/utils/imagenet/check_tfrecord.py --path-origin-tfrecord path/your/imagenet --subfolder-name val  # 检查val类别中tfrecord正确性
 python katacv/utils/imagenet/build_dataset.py --path-dataset-tfrecord path/your/imagenet  # 建立数据集，直接执行该文件会在训练集中随机采样5个训练图片，并现实其翻译后的标签名
 ```
-
-## 目标检测
-
-| 算法    | 数据集                                                       | 完成情况 | 框架 |
-| ------- | ------------------------------------------------------------ | -------- | ---- |
-| YOLO-v1 | [Pascal VOC 2007/2012](https://www.kaggle.com/datasets/734b7bcb7ef13a045cbdd007a3c19874c2586ed0b02b4afc86126e89d00af8d2?resource=download) | working  | JAX  |
-
