@@ -4,12 +4,29 @@
 
 ## 图像分类
 
-| 网络      | 数据集   | 完成情况                           | 框架 |
-| --------- | -------- | ---------------------------------- | ---- |
-| LeNet-5   | MNIST    | OK                                 | TF2  |
-| AlexNet   | ImageNet | OK 参数在网盘中                    | TF2  |
-| VGG16     | ImageNet | OK（但是调参仍有问题，初始lr过大） | JAX  |
-| GoogleNet | ImageNet | OK（训练中）                       | JAX  |
+| 模型      | 数据集   | 完成情况                           | 框架 |      Paper/Note|
+| --------- | -------- | ---------------------------------- | ---- |  ----|
+| LeNet-5   | MNIST    | OK                                 | TF2  | [Paper](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf)     |
+| AlexNet   | ImageNet | OK 参数存于网盘                    | TF2  | [Paper](https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf)       |
+| VGG16     | ImageNet | OK（但是调参有问题，初始lr过大） | JAX  | [Paper](https://arxiv.org/pdf/1409.1556.pdf)  |
+| GoogleNet | ImageNet | OK  (val-top5: 78.17%, top1: 53.78%)                     | JAX  | [Paper](https://arxiv.org/pdf/1409.4842.pdf)  |
+| ResNet50    | ImageNet | OK (val-top5: 92.53%, top1: 75.47%)     |  JAX | [Paper](https://arxiv.org/pdf/1512.03385.pdf)  |
+| YOLOv1-DarkNet    |  ImageNet | OK (val-top5: 89.39%, top1: 69.1%)     | JAX  | [Paper](https://arxiv.org/pdf/1506.02640.pdf)/[Blog](https://wty-yy.space/posts/1018/)    |
+| YOLOv3-DarkNet53  | ImageNet  | OK (val-top5: 92.6%, top1: 75.77%)     |  JAX   | [Paper](https://arxiv.org/pdf/1804.02767.pdf)/[Blog](https://wty-yy.space/posts/50137/)    |
+|     |      |      |     |     |
+
+## 目标检测
+
+| 模型      | 数据集   | 完成情况                           | 框架 |      Paper/Note|
+| --------- | -------- | ---------------------------------- | ---- |  ----|
+| YOLOv1   | VOC PASCAL    | OK (val-mAP: 0.53, coco-mAP: 0.28)    | JAX  | [Paper](https://arxiv.org/pdf/1506.02640.pdf)/[Blog](https://wty-yy.space/posts/1018/)     |
+| YOLOv3   | VOC PASCAL <br/> COCO    | OK (PASCAL: val-mAP: 0.66, coco-mAP: 0.39 <br/> COCO: val-mAP: 0.42, coco-mAP: 0.25)    | JAX  | [Paper](https://arxiv.org/pdf/1804.02767.pdf)/[Blog](https://wty-yy.space/posts/50137/)     |
+
+## OCR
+
+| 模型      | 数据集   | 完成情况                           | 框架 |      Paper/Note|
+| --------- | -------- | ---------------------------------- | ---- |  ----|
+| CTCLoss & CRNN   |  MJsynth   | OK (val accuray: 63 words: 91.23%,<br/>(lower) 37 words: 94.28%)    | JAX  | [CTCLoss Paper](https://www.cs.toronto.edu/~graves/icml_2006.pdf)/[CRNN Paper](https://arxiv.org/pdf/1507.05717.pdf)/[Blog](https://wty-yy.space/posts/62694/)     |
 
 权重参数保存位置（不完整）：[Google网盘-Network Weight](https://drive.google.com/drive/folders/1QfcO48rSF8vZmNhZVBlCgMoQRXN_bUoJ?usp=sharing)
 
