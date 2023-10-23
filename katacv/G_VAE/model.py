@@ -90,7 +90,7 @@ class Decoder(nn.Module):
   def __call__(self, x, train: bool = True):
     norm = partial(nn.BatchNorm, use_running_average=not train)
     conv = partial(ConvBlock, norm=norm, act=self.act)
-    conv_t = partial(ConvTransposeBlock, norm=norm, act=self.act)
+    # conv_t = partial(ConvTransposeBlock, norm=norm, act=self.act)
     block = partial(ResBlock, conv=conv, norm=norm, act=self.act)
     power = 2 ** (len(self.stage_size))
     input_shape =(self.output_shape[0] // power, self.output_shape[1] // power, 32 * power)
@@ -99,8 +99,8 @@ class Decoder(nn.Module):
     for block_num in self.stage_size:
       for _ in range(block_num):
         x = block()(x)
-      x = conv_t(filters=x.shape[-1]//2, kernel=(3,3), strides=(2,2))(x)
-      # x = jax.image.resize(x, (x.shape[0], x.shape[1]*2, x.shape[2]*2, x.shape[3]), method='nearest')
+      # x = conv_t(filters=x.shape[-1]//2, kernel=(3,3), strides=(2,2))(x)
+      x = jax.image.resize(x, (x.shape[0], x.shape[1]*2, x.shape[2]*2, x.shape[3]), method='nearest')
     x = conv(filters=self.output_shape[-1], kernel=(3,3))(x)
     return x
 
@@ -290,7 +290,7 @@ def test_vae():
 
 def test_g_vae():
   from katacv.G_VAE.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True)
+  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
   state = get_g_vae_model_state(args, verbose=True)
   (distrib, image, logits), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},

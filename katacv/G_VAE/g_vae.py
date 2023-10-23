@@ -59,7 +59,8 @@ def model_step(
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
-  args, writer = get_args_and_writer()
+  args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='MNIST')
+  # args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='cifar10')
 
   ### Initialize log manager ###
   from katacv.G_VAE.logs import logs
@@ -81,8 +82,11 @@ if __name__ == '__main__':
   if args.path_dataset.name == 'mnist':
     from katacv.utils.mini_data.mnist import load_mnist
     data = load_mnist(args.path_dataset)
+  elif args.path_dataset.name == 'cifar10':
+    from katacv.utils.mini_data.cifar10 import load_cifar10
+    data = load_cifar10(args.path_dataset)
   ds_builder = DatasetBuilder(data, args)
-  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat)
+  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat, use_aug=args.use_aug)
   val_ds, val_ds_size = ds_builder.get_dataset('val')
 
   ### Train and evaluate ###

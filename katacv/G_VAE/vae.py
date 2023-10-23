@@ -52,7 +52,8 @@ def model_step(
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
-  args, writer = get_args_and_writer(model_name='VAE')
+  # args, writer = get_args_and_writer(model_name='VAE', dataset_name='MNIST')
+  args, writer = get_args_and_writer(model_name='VAE', dataset_name='cifar10')
 
   ### Initialize log manager ###
   from katacv.G_VAE.logs import logs

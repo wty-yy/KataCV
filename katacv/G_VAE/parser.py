@@ -1,6 +1,12 @@
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.parser import Parser, cvt2Path, SummaryWriter, CVArgs, datetime
-import constant as const
+import katacv.G_VAE.constant_mnist as const_mnist
+import katacv.G_VAE.constant_cifar10 as const_cifar10
+
+dataset2const = {
+  'MNIST': const_mnist,
+  'cifar10': const_cifar10,
+}
 
 class VAEArgs(CVArgs):
   ### Model ###
@@ -15,10 +21,12 @@ class VAEArgs(CVArgs):
   ### Dataset ###
   path_dataset: Path
   repeat: int
+  use_aug: bool
 
-def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE") -> Tuple[VAEArgs, SummaryWriter] | VAEArgs:
-  # parser = Parser(model_name="VAE", wandb_project_name='MNIST')
-  parser = Parser(model_name=model_name, wandb_project_name='MNIST')
+def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", dataset_name="MNIST") -> Tuple[VAEArgs, SummaryWriter] | VAEArgs:
+  assert(dataset_name in dataset2const.keys())
+  parser = Parser(model_name=model_name, wandb_project_name=dataset_name)
+  const = dataset2const[dataset_name]
   ### Dataset config ###
   parser.add_argument("--path-dataset", type=cvt2Path, default=const.path_dataset,
     help="the path of the dataset")
@@ -26,10 +34,12 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE") ->
     help="the batch size of train and validate dataset")
   parser.add_argument("--shuffle-size", type=int, default=const.shuffle_size,
     help="the shuffle size of the tf.data.Dataset")
-  parser.add_argument("--image-shape", default=const.image_shape, nargs='*',
+  parser.add_argument("--image-shape", default=const.image_shape, nargs='+',
     help="the image shape of the model input")
   parser.add_argument("--repeat", type=int, default=const.repeat,
     help="the number of repeating the train dataset")
+  parser.add_argument("--use-aug", type=str2bool, default=const.use_aug, const=True, nargs='?',
+    help="if taggled, the augmentation will be used in train dataset")
   ### Model config ###
   parser.add_argument("--class-num", type=int, default=const.class_num,
     help="the number of classification classes")
