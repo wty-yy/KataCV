@@ -34,10 +34,10 @@ class DatasetBuilder():
     assert(subset in ['train', 'val'])
     data = self.train if subset == 'train' else self.val
     datasize = data[0].shape[0]
-    ds = tf.data.Dataset.from_tensor_slices(data)
+    ds = tf.data.Dataset.from_tensor_slices(data).repeat(repeat)
     if shuffle: ds = ds.shuffle(self.shuffle_size)
     ds = ds.batch(self.batch_size, drop_remainder=True)
-    return ds, datasize // self.batch_size
+    return ds, datasize * repeat // self.batch_size
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

@@ -30,7 +30,7 @@ def load_mnist(path=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarra
     with gzip.open(path) as f:
       # First 16 bytes are magic_number, n_imgs, n_rows, n_cols
       pixels = np.frombuffer(f.read(), 'B', offset=16)
-    return pixels.reshape(-1, 28, 28, 1).astype('uint8')
+    return pixels.reshape(-1, 28, 28, 1).astype('float32') / 255
 
   def _labels(path):
     """Return labels loaded locally."""

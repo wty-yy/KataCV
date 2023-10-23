@@ -1,6 +1,7 @@
 import argparse, datetime
 from pathlib import Path
 from tensorboardX import SummaryWriter
+from typing import Sequence
 
 def cvt2Path(x): return Path(x)
 def str2bool(x): return x in ['yes', 'y', 'True', '1']
@@ -32,6 +33,7 @@ class CVArgs(NamedTuple):
     batch_size: int
     shuffle_size: int
     image_size: int
+    image_shape: Sequence[int]
     # Model
     input_shape: int
     train: bool

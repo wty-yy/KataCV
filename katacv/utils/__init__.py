@@ -2,7 +2,7 @@ from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.related_pkgs.utility import *
 
 from katacv.utils.parser import CVArgs
-def load_weights(state: train_state.TrainState, args: CVArgs):
+def load_weights(state: train_state.TrainState, args: CVArgs) -> train_state.TrainState:
     if args.load_id == 0: return state
     path_load = args.path_cp.joinpath(f"{args.model_name}-{args.load_id:04}")
     assert(path_load.exists())
