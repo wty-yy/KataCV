@@ -45,3 +45,7 @@ def load_mnist(path=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarra
   test_labels = _labels(os.path.join(path, files[3]))
 
   return train_images, train_labels, test_images, test_labels 
+
+if __name__ == '__main__':
+  data = load_mnist("/home/yy/Coding/datasets/mnist")
+  print(data[0].shape, data[2].shape)

@@ -59,8 +59,8 @@ def model_step(
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
-  args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='MNIST')
-  # args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='cifar10')
+  # args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='MNIST')
+  args, writer = get_args_and_writer(model_name='G-VAE', dataset_name='cifar10')
 
   ### Initialize log manager ###
   from katacv.G_VAE.logs import logs
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     from katacv.utils.mini_data.cifar10 import load_cifar10
     data = load_cifar10(args.path_dataset)
   ds_builder = DatasetBuilder(data, args)
-  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat, use_aug=args.use_aug)
+  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat, use_aug=args.flag_use_aug)
   val_ds, val_ds_size = ds_builder.get_dataset('val')
 
   ### Train and evaluate ###
@@ -106,11 +106,12 @@ if __name__ == '__main__':
         )
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
-            ['SPS', 'SPS_avg', 'epoch'],
+            ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
             [
               args.write_tensorboard_freq/logs.get_time_length(),
               global_step/(time.time()-start_time),
-              epoch
+              epoch,
+              args.learning_rate_fn(state.step),
             ]
           )
           logs.writer_tensorboard(writer, global_step)
@@ -121,8 +122,8 @@ if __name__ == '__main__':
         x, y = x.numpy(), y.numpy()
         _, loss = model_step(state, x, y, train=False)
         logs.update(
-          ['loss_val', 'loss_img_val', 'loss_kl_val', 'loss_cls_val', 'acc_val', 'epoch'],
-          [*metrics, epoch]
+          ['loss_val', 'loss_img_val', 'loss_kl_val', 'loss_cls_val', 'acc_val', 'epoch', 'learning_rate'],
+          [*metrics, epoch, args.learning_rate_fn(state.step)]
         )
       logs.writer_tensorboard(writer, global_step)
       

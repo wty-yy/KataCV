@@ -18,10 +18,13 @@ class VAEArgs(CVArgs):
   coef_kl_loss: float
   coef_cls_loss: float
   flag_l2_image_loss: bool
+  flag_cosine_schedule: bool
+  learning_rate_fn: Callable
+  steps_per_epoch: int
   ### Dataset ###
   path_dataset: Path
   repeat: int
-  use_aug: bool
+  flag_use_aug: bool
 
 def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", dataset_name="MNIST") -> Tuple[VAEArgs, SummaryWriter] | VAEArgs:
   assert(dataset_name in dataset2const.keys())
@@ -38,7 +41,7 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", da
     help="the image shape of the model input")
   parser.add_argument("--repeat", type=int, default=const.repeat,
     help="the number of repeating the train dataset")
-  parser.add_argument("--use-aug", type=str2bool, default=const.use_aug, const=True, nargs='?',
+  parser.add_argument("--flag-use-aug", type=str2bool, default=const.use_aug, const=True, nargs='?',
     help="if taggled, the augmentation will be used in train dataset")
   ### Model config ###
   parser.add_argument("--class-num", type=int, default=const.class_num,
@@ -60,15 +63,18 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", da
     help="the coef of the classification loss in VAE")
   parser.add_argument("--flag-l2-image-loss", type=str2bool, default=const.flag_l2_image_loss, const=True, nargs='?',
     help="if taggled, the l2 image loss will be used")
+  parser.add_argument("--flag-cosine-schedule", type=str2bool, default=const.flag_cosine_schedule, const=True, nargs='?',
+    help="if taggled, the cosine schedule will be used in learing rate decay")
   args = parser.parse_args(input_args)
 
   parser.check_args(args)
   args.run_name = (
-    f"{args.model_name}__load_{args.load_id}__lr_{args.learning_rate}__"
+    f"{args.model_name}__load_{args.load_id}__{'cosine__' if args.flag_cosine_schedule else ''}lr_{args.learning_rate}__"
     f"batch_{args.batch_size}__repeat_{args.repeat}__image_loss_{'l2' if args.flag_l2_image_loss else 'l1'}__"
     f"{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
   )
   args.input_shape = (args.batch_size, *args.image_shape)
+  args.steps_per_epoch = const.train_data_size // args.batch_size
   if no_writer: return args
 
   writer = parser.get_writer(args)

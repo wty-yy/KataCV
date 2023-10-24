@@ -90,7 +90,7 @@ class Decoder(nn.Module):
   def __call__(self, x, train: bool = True):
     norm = partial(nn.BatchNorm, use_running_average=not train)
     conv = partial(ConvBlock, norm=norm, act=self.act)
-    # conv_t = partial(ConvTransposeBlock, norm=norm, act=self.act)
+    conv_t = partial(ConvTransposeBlock, norm=norm, act=self.act)
     block = partial(ResBlock, conv=conv, norm=norm, act=self.act)
     power = 2 ** (len(self.stage_size))
     input_shape =(self.output_shape[0] // power, self.output_shape[1] // power, 32 * power)
@@ -99,8 +99,8 @@ class Decoder(nn.Module):
     for block_num in self.stage_size:
       for _ in range(block_num):
         x = block()(x)
-      # x = conv_t(filters=x.shape[-1]//2, kernel=(3,3), strides=(2,2))(x)
-      x = jax.image.resize(x, (x.shape[0], x.shape[1]*2, x.shape[2]*2, x.shape[3]), method='nearest')
+      x = conv_t(filters=x.shape[-1]//2, kernel=(3,3), strides=(2,2))(x)
+      # x = jax.image.resize(x, (x.shape[0], x.shape[1]*2, x.shape[2]*2, x.shape[3]), method='nearest')
     x = conv(filters=self.output_shape[-1], kernel=(3,3))(x)
     return x
 
@@ -221,6 +221,14 @@ def test_classify_mnist():
       bar.set_description(f"loss: {mean_loss:.5f}, acc: {mean_acc:.5f}")
 
 from katacv.G_VAE.parser import VAEArgs
+def get_learning_rate_fn(args: VAEArgs):
+  if args.flag_cosine_schedule:
+    return optax.cosine_decay_schedule(
+      init_value=args.learning_rate,
+      decay_steps=args.total_epochs * args.steps_per_epoch
+    )
+  return lambda x: x
+
 def get_vae_model_state(args: VAEArgs, verbose=False):
   model = VAE(
     image_shape=args.image_shape,
@@ -228,6 +236,7 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
     decoder_stage_size=args.decoder_stage_size,
     feature_size=args.feature_size
   )
+  args.learning_rate_fn = get_learning_rate_fn(args)
   if verbose:
     print(model.tabulate(jax.random.PRNGKey(args.seed), jnp.empty(args.input_shape), train=False))
   variables = model.init(jax.random.PRNGKey(args.seed), jnp.empty(args.input_shape), train=False)
@@ -236,7 +245,7 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
     params=variables['params'],
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
-    tx=optax.adam(learning_rate=args.learning_rate)
+    tx=optax.adam(learning_rate=args.learning_rate_fn)
   )
 
 def get_decoder_state(args: VAEArgs, verbose=False):
@@ -264,6 +273,7 @@ def get_g_vae_model_state(args: VAEArgs, verbose=False):
     decoder_stage_size=args.decoder_stage_size,
     feature_size=args.feature_size
   )
+  args.learning_rate_fn = get_learning_rate_fn(args)
   if verbose:
     print(model.tabulate(jax.random.PRNGKey(args.seed), jnp.empty(args.input_shape), train=False))
   variables = model.init(jax.random.PRNGKey(args.seed), jnp.empty(args.input_shape), train=False)
@@ -272,7 +282,7 @@ def get_g_vae_model_state(args: VAEArgs, verbose=False):
     params=variables['params'],
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
-    tx=optax.adam(learning_rate=args.learning_rate)
+    tx=optax.adam(learning_rate=args.learning_rate_fn)
   )
 
 def test_vae():
