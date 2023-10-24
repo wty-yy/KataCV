@@ -2,10 +2,12 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.parser import Parser, cvt2Path, SummaryWriter, CVArgs, datetime
 import katacv.G_VAE.constant_mnist as const_mnist
 import katacv.G_VAE.constant_cifar10 as const_cifar10
+import katacv.G_VAE.constant_celeba as const_celeba
 
 dataset2const = {
   'MNIST': const_mnist,
   'cifar10': const_cifar10,
+  'celeba': const_celeba,
 }
 
 class VAEArgs(CVArgs):
