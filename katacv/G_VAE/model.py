@@ -36,12 +36,13 @@ class ConvTransposeBlock(nn.Module):
   act: Callable
   kernel: Tuple[int, int]
   strides: Tuple[int, int] = (1, 1)
+  padding: str = 'SAME'
   use_norm: bool = True
   use_act: bool = True
 
   @nn.compact
   def __call__(self, x):
-    x = nn.ConvTranspose(self.filters, self.kernel, self.strides, use_bias=not self.use_norm)(x)
+    x = nn.ConvTranspose(self.filters, self.kernel, self.strides, self.padding, use_bias=not self.use_norm)(x)
     if self.use_norm: x = self.norm()(x)
     if self.use_act: x = self.act(x)
     return x
@@ -94,7 +95,7 @@ class Decoder(nn.Module):
     block = partial(ResBlock, conv=conv, norm=norm, act=self.act)
     power = 2 ** (len(self.stage_size))
     input_shape =(self.output_shape[0] // power, self.output_shape[1] // power, 32 * power)
-    x = nn.Dense(input_shape[0] * input_shape[1] * input_shape[2])(x)
+    x = nn.Dense(input_shape[0] * input_shape[1] * input_shape[2])(x)  # old, param is so large
     x = x.reshape(x.shape[0], *input_shape)
     for block_num in self.stage_size:
       for _ in range(block_num):
@@ -300,7 +301,8 @@ def test_vae():
 
 def test_g_vae():
   from katacv.G_VAE.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
   state = get_g_vae_model_state(args, verbose=True)
   (distrib, image, logits), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},
