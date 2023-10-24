@@ -75,8 +75,11 @@ if __name__ == '__main__':
   if args.path_dataset.name == 'mnist':
     from katacv.utils.mini_data.mnist import load_mnist
     data = load_mnist(args.path_dataset)
+  elif args.path_dataset.name == 'cifar10':
+    from katacv.utils.mini_data.cifar10 import load_cifar10
+    data = load_cifar10(args.path_dataset)
   ds_builder = DatasetBuilder(data, args)
-  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat)
+  train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat, use_aug=args.flag_use_aug)
   val_ds, val_ds_size = ds_builder.get_dataset('val')
 
   ### Train and evaluate ###
@@ -96,11 +99,12 @@ if __name__ == '__main__':
         )
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
-            ['SPS', 'SPS_avg', 'epoch'],
+            ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
             [
               args.write_tensorboard_freq/logs.get_time_length(),
               global_step/(time.time()-start_time),
-              epoch
+              epoch,
+              args.learning_rate_fn(state.step),
             ]
           )
           logs.writer_tensorboard(writer, global_step)
@@ -111,8 +115,8 @@ if __name__ == '__main__':
         x, y = x.numpy(), y.numpy()
         _, loss = model_step(state, x, y, train=False)
         logs.update(
-          ['loss_val', 'loss_img_val', 'loss_kl_val', 'epoch'],
-          [*metrics, epoch]
+          ['loss_val', 'loss_img_val', 'loss_kl_val', 'epoch', 'learning_rate'],
+          [*metrics, epoch, args.learning_rate_fn(state.step)]
         )
       logs.writer_tensorboard(writer, global_step)
       
