@@ -179,13 +179,14 @@ if __name__ == '__main__':
     #   n=10,
     #   name=f"image_change_{i}"
     # )
+    # rate = 0.1  # mnist
     rate = 0.05
-    # show_image_aug(
-    #   x1,
-    #   n=14,
-    #   name=f"image_aug_rate_{rate}_{i}",
-    #   threshold_rate=rate
-    # )
+    show_image_aug(
+      x1,
+      n=14,
+      name=f"image_aug_rate_{rate}_{i}",
+      threshold_rate=rate
+    )
   xs = np.concatenate(xs, axis=0)
   show_image_aug(  # some good augmentation in cifar10
     xs[[1,9,10,12,15,18,19,20,24,26]],

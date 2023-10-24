@@ -1,8 +1,8 @@
 from pathlib import Path
 
 ### Dataset config ###
-# path_dataset = Path("/home/yy/Coding/datasets/cifar10")
-path_dataset = Path("/home/wty/Coding/datasets/cifar10")
+path_dataset = Path("/home/yy/Coding/datasets/cifar10")
+# path_dataset = Path("/home/wty/Coding/datasets/cifar10")
 batch_size = 128
 shuffle_size = 128 * 16
 image_shape = (32, 32, 3)
