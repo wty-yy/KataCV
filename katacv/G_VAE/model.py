@@ -245,7 +245,7 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
     params=variables['params'],
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
-    tx=optax.adam(learning_rate=args.learning_rate_fn)
+    tx=optax.adam(learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate)
   )
 
 def get_decoder_state(args: VAEArgs, verbose=False):
@@ -282,7 +282,7 @@ def get_g_vae_model_state(args: VAEArgs, verbose=False):
     params=variables['params'],
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
-    tx=optax.adam(learning_rate=args.learning_rate_fn)
+    tx=optax.adam(learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate)
   )
 
 def test_vae():

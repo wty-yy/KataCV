@@ -120,7 +120,7 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
-  vae_args = get_args_and_writer(no_writer=True)
+  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='MNIST')
   pred_args = get_args()
   vae_args.batch_size = pred_args.row * pred_args.column
   pred_args.path_figures = vae_args.path_logs.joinpath("figures")
