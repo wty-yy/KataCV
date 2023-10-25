@@ -14,11 +14,11 @@ def load_weights(state: train_state.TrainState, args: CVArgs) -> train_state.Tra
 class SaveWeightsManager:
     path_save: Path
 
-    def __init__(self, args: CVArgs):
+    def __init__(self, args: CVArgs, ignore=False):
         self.path_cp, self.model_name = args.path_cp, args.model_name
         self.save_id = args.load_id + 1
         self.update_path_save()
-        if self.path_save.exists():
+        if self.path_save.exists() and not ignore:
             print(f"The weights file '{str(self.path_save)}' already exists, still want to continue? [enter]", end=""); input()
     
     def update_path_save(self):

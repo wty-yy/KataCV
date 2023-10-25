@@ -45,6 +45,7 @@ def model_step(
     dense_params = state.params['Dense_0']
     loss_cls = isda_loss(mu, logsigma2, dense_params['kernel'], dense_params['bias'], y, args.class_num)
     loss = loss_img + args.coef_kl_loss * loss_kl + args.coef_cls_loss * loss_cls
+    # loss = args.coef_kl_loss * loss_kl + args.coef_cls_loss * loss_cls
     acc = (jnp.argmax(logits, -1) == y).astype(jnp.float32).mean()
     return loss, (updates, loss_img, loss_kl, loss_cls, acc)
   
@@ -76,7 +77,7 @@ if __name__ == '__main__':
 
   ### Save config ###
   from katacv.utils import SaveWeightsManager
-  save_weight = SaveWeightsManager(args)
+  save_weight = SaveWeightsManager(args, ignore=True)
 
   ### Initialize dataset ###
   if args.path_dataset.name == 'mnist':

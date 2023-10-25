@@ -13,14 +13,16 @@ train_data_size = 50000 * repeat
 ### Model config ###
 class_num = 10
 encoder_stage_size = (3, 4, 6, 3)
+# encoder_stage_size = (2, 4, 4, 2)
 decoder_stage_size = encoder_stage_size[::-1]
-feature_size = 512
+feature_size = 2048
 
 ### Training config ###
 total_epochs = 5
-learning_rate = 0.001
+# learning_rate = 0.001
+learning_rate = 5e-4
 coef_kl_loss = 2.5e-3
 # coef_kl_loss = 1e-4
-coef_cls_loss = 5.0
+coef_cls_loss = 20.0
 flag_l2_image_loss = True
 flag_cosine_schedule = True

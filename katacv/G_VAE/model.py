@@ -247,6 +247,10 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
     tx=optax.adam(learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate)
+    # tx=optax.sgd(
+    #   learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate,
+    #   momentum=0.9, nesterov=True
+    # )
   )
 
 def get_decoder_state(args: VAEArgs, verbose=False):
@@ -284,11 +288,16 @@ def get_g_vae_model_state(args: VAEArgs, verbose=False):
     batch_stats=variables['batch_stats'],
     sample_key=jax.random.PRNGKey(args.seed),
     tx=optax.adam(learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate)
+    # tx=optax.sgd(
+    #   learning_rate=args.learning_rate_fn if args.flag_cosine_schedule else args.learning_rate,
+    #   momentum=0.9, nesterov=True
+    # )
   )
 
 def test_vae():
   from katacv.G_VAE.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True)
+  args = get_args_and_writer(no_writer=True, model_name='VAE', dataset_name='cifar10')
+  # args = get_args_and_writer(no_writer=True, model_name='VAE', dataset_name='celeba')
   state = get_vae_model_state(args, verbose=True)
   (distrib, logits), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},
@@ -301,8 +310,8 @@ def test_vae():
 
 def test_g_vae():
   from katacv.G_VAE.parser import get_args_and_writer
-  # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
-  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
+  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
   state = get_g_vae_model_state(args, verbose=True)
   (distrib, image, logits), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},

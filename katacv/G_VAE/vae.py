@@ -53,7 +53,8 @@ if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
   # args, writer = get_args_and_writer(model_name='VAE', dataset_name='MNIST')
-  args, writer = get_args_and_writer(model_name='VAE', dataset_name='cifar10')
+  # args, writer = get_args_and_writer(model_name='VAE', dataset_name='cifar10')
+  args, writer = get_args_and_writer(model_name='VAE', dataset_name='celeba')
 
   ### Initialize log manager ###
   from katacv.G_VAE.logs import logs
@@ -71,14 +72,19 @@ if __name__ == '__main__':
   save_weight = SaveWeightsManager(args)
 
   ### Initialize dataset ###
-  from katacv.utils.mini_data.build_dataset import DatasetBuilder
   if args.path_dataset.name == 'mnist':
+    from katacv.utils.mini_data.build_dataset import DatasetBuilder
     from katacv.utils.mini_data.mnist import load_mnist
     data = load_mnist(args.path_dataset)
+    ds_builder = DatasetBuilder(data, args)
   elif args.path_dataset.name == 'cifar10':
+    from katacv.utils.mini_data.build_dataset import DatasetBuilder
     from katacv.utils.mini_data.cifar10 import load_cifar10
     data = load_cifar10(args.path_dataset)
-  ds_builder = DatasetBuilder(data, args)
+    ds_builder = DatasetBuilder(data, args)
+  elif args.path_dataset.name == 'celeba':
+    from katacv.utils.celeba.build_dataset import DatasetBuilder
+    ds_builder = DatasetBuilder(args)
   train_ds, train_ds_size = ds_builder.get_dataset('train', repeat=args.repeat, use_aug=args.flag_use_aug)
   val_ds, val_ds_size = ds_builder.get_dataset('val')
 

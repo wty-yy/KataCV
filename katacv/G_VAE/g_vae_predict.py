@@ -136,7 +136,8 @@ if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
   from katacv.G_VAE.parser import get_args_and_writer
   # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='MNIST')
-  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
   pred_args = get_args()
   vae_args.batch_size = pred_args.row * pred_args.column
   pred_args.path_figures = vae_args.path_logs.joinpath("figures")
@@ -156,14 +157,19 @@ if __name__ == '__main__':
   )
 
   ### Initialize dataset ###
-  from katacv.utils.mini_data.build_dataset import DatasetBuilder
   if vae_args.path_dataset.name == 'mnist':
+    from katacv.utils.mini_data.build_dataset import DatasetBuilder
     from katacv.utils.mini_data.mnist import load_mnist
     data = load_mnist(vae_args.path_dataset)
+    ds_builder = DatasetBuilder(data, vae_args)
   elif vae_args.path_dataset.name == 'cifar10':
+    from katacv.utils.mini_data.build_dataset import DatasetBuilder
     from katacv.utils.mini_data.cifar10 import load_cifar10
     data = load_cifar10(vae_args.path_dataset)
-  ds_builder = DatasetBuilder(data, vae_args)
+    ds_builder = DatasetBuilder(data, vae_args)
+  elif vae_args.path_dataset.name == 'celeba':
+    from katacv.utils.celeba.build_dataset import DatasetBuilder
+    ds_builder = DatasetBuilder(vae_args)
   ds, ds_size = ds_builder.get_dataset(pred_args.subset, shuffle=False)
 
   # show_orgin_pred()
@@ -187,10 +193,10 @@ if __name__ == '__main__':
       name=f"image_aug_rate_{rate}_{i}",
       threshold_rate=rate
     )
-  xs = np.concatenate(xs, axis=0)
-  show_image_aug(  # some good augmentation in cifar10
-    xs[[1,9,10,12,15,18,19,20,24,26]],
-    n=14,
-    name=f"image_aug_rate_{rate}_good",
-    threshold_rate=rate
-  )
+  # xs = np.concatenate(xs, axis=0)
+  # show_image_aug(  # some good augmentation in cifar10
+  #   xs[[1,9,10,12,15,18,19,20,24,26]],
+  #   n=14,
+  #   name=f"image_aug_rate_{rate}_good",
+  #   threshold_rate=rate
+  # )

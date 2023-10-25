@@ -69,8 +69,10 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", da
     help="if taggled, the cosine schedule will be used in learing rate decay")
   args = parser.parse_args(input_args)
 
+  args.model_name += str(args.feature_size)
   parser.check_args(args)
   args.run_name = (
+    # f"{args.model_name}_classify__load_{args.load_id}__{'cosine__' if args.flag_cosine_schedule else ''}lr_{args.learning_rate}__"
     f"{args.model_name}__load_{args.load_id}__{'cosine__' if args.flag_cosine_schedule else ''}lr_{args.learning_rate}__"
     f"batch_{args.batch_size}__repeat_{args.repeat}__image_loss_{'l2' if args.flag_l2_image_loss else 'l1'}__"
     f"{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}".replace("/", "-")
