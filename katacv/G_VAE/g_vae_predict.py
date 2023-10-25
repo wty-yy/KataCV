@@ -93,7 +93,8 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
   delta = np.where(sigma >= threshold, sigma, 0)
   plt.hist(sigma[0], bins=50)
   plt.hist(delta[0][delta[0] > 0], bins=50)
-  plt.show()
+  plt.close()
+  # plt.show()
   # delta = delta / (delta**2).sum(-1)[:,None]
   # delta = sigma / (sigma ** 2).sum(-1)[:,None]
   # delta = sigma / sigma.sum(-1)[:,None]
@@ -193,10 +194,10 @@ if __name__ == '__main__':
       name=f"image_aug_rate_{rate}_{i}",
       threshold_rate=rate
     )
-  # xs = np.concatenate(xs, axis=0)
-  # show_image_aug(  # some good augmentation in cifar10
-  #   xs[[1,9,10,12,15,18,19,20,24,26]],
-  #   n=14,
-  #   name=f"image_aug_rate_{rate}_good",
-  #   threshold_rate=rate
-  # )
+  xs = np.concatenate(xs, axis=0)
+  show_image_aug(  # some good augmentation in cifar10
+    xs[[1,9,10,12,15,18,19,20,24,26]],
+    n=14,
+    name=f"image_aug_rate_{rate}_good",
+    threshold_rate=rate
+  )
