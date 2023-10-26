@@ -3,19 +3,23 @@ from katacv.utils.parser import Parser, cvt2Path, SummaryWriter, CVArgs, datetim
 import katacv.G_VAE.constant_mnist as const_mnist
 import katacv.G_VAE.constant_cifar10 as const_cifar10
 import katacv.G_VAE.constant_celeba as const_celeba
+import katacv.G_VAE.constant_celeba_unet as const_celeba_unet
 
 dataset2const = {
   'MNIST': const_mnist,
   'cifar10': const_cifar10,
-  'celeba': const_celeba,
+  'celeba': [const_celeba, const_celeba_unet],
 }
 
 class VAEArgs(CVArgs):
   ### Model ###
   class_num: int
   encoder_stage_size: Tuple[int]
-  decoder_stage_size: Tuple[int]
+  decoder_stage_size: Tuple[int]  # no unet
+  encoder_start_filters: int  # unet
+  decoder_start_filters: int  # unet
   feature_size: int
+  use_unet: bool
   ### Train ###
   coef_kl_loss: float
   coef_cls_loss: float
@@ -28,10 +32,14 @@ class VAEArgs(CVArgs):
   repeat: int
   flag_use_aug: bool
 
-def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", dataset_name="MNIST") -> Tuple[VAEArgs, SummaryWriter] | VAEArgs:
+def get_args_and_writer(
+    no_writer=False, input_args=None,
+    model_name="G-VAE", dataset_name="MNIST",
+    use_unet=False,
+  ) -> Tuple[VAEArgs, SummaryWriter] | VAEArgs:
   assert(dataset_name in dataset2const.keys())
   parser = Parser(model_name=model_name, wandb_project_name=dataset_name)
-  const = dataset2const[dataset_name]
+  const = dataset2const[dataset_name][int(use_unet)]
   ### Dataset config ###
   parser.add_argument("--path-dataset", type=cvt2Path, default=const.path_dataset,
     help="the path of the dataset")
@@ -50,8 +58,14 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", da
     help="the number of classification classes")
   parser.add_argument("--encoder-stage-size", nargs="+", default=const.encoder_stage_size,
     help="the encoder stage size of the number of resblock")
-  parser.add_argument("--decoder-stage-size", nargs="+", default=const.decoder_stage_size,
-    help="the decoder stage size of the number of resblock")
+  if not use_unet:
+    parser.add_argument("--decoder-stage-size", nargs="+", default=const.decoder_stage_size,
+      help="the decoder stage size of the number of resblock")
+  else:
+    parser.add_argument("--encoder-start-filters", type=int, default=const.encoder_start_filters,
+      help="the start filters size of the encoder model")
+    parser.add_argument("--decoder-start-filters", type=int, default=const.decoder_start_filters,
+      help="the start filters size of the decoder model")
   parser.add_argument("--feature-size", type=int, default=const.feature_size,
     help="the dimension size of the feature")
   ### Training config ###
@@ -70,6 +84,8 @@ def get_args_and_writer(no_writer=False, input_args=None, model_name="G-VAE", da
   args = parser.parse_args(input_args)
 
   args.model_name += str(args.feature_size)
+  args.use_unet = use_unet
+  if use_unet: args.model_name += "-UNet"
   parser.check_args(args)
   args.run_name = (
     # f"{args.model_name}_classify__load_{args.load_id}__{'cosine__' if args.flag_cosine_schedule else ''}lr_{args.learning_rate}__"

@@ -54,13 +54,17 @@ if __name__ == '__main__':
   from katacv.G_VAE.parser import get_args_and_writer
   # args, writer = get_args_and_writer(model_name='VAE', dataset_name='MNIST')
   # args, writer = get_args_and_writer(model_name='VAE', dataset_name='cifar10')
-  args, writer = get_args_and_writer(model_name='VAE', dataset_name='celeba')
+  # args, writer = get_args_and_writer(model_name='VAE', dataset_name='celeba')
+  args, writer = get_args_and_writer(model_name='VAE', dataset_name='celeba', use_unet=True)
 
   ### Initialize log manager ###
   from katacv.G_VAE.logs import logs
 
   ### Initialize model state ###
-  from katacv.G_VAE.model import get_vae_model_state
+  if not args.use_unet:
+    from katacv.G_VAE.model import get_vae_model_state
+  else:
+    from katacv.G_VAE.model_unet import get_vae_model_state
   state = get_vae_model_state(args)
 
   ### Load weights ###
