@@ -39,6 +39,6 @@
 4. [`g_vae_predict.py`](/katacv/G_VAE/g_vae_predict.py), [`vae_predict.py`](/katacv/G_VAE/vae_predict.py)：分别为G-VAE和VAE对数据集进行预测的代码，预测功能包含：对当前数据按照其方差的方向进行正反向增强，从一张图片渐变到另一张图片等。
 5. [`logs.py`](/katacv/G_VAE/logs.py)：实例化训练日志记录的对象。
 6. [`parser.py`](/katacv/G_VAE/parser.py)：解析训练模型所需的所有超参数。
-7. [`constant_mnist.py`](/katacv/G_VAE/constant_mnist.py), [`constant_cifar10.py`](/katacv/G_VAE/constant_cifar10.py)：分别为MNIST和cifar10训练所需的全部超参数。
+7. [`constant_mnist.py`](/katacv/G_VAE/constant_mnist.py), [`constant_cifar10.py`](/katacv/G_VAE/constant_cifar10.py), [`constant_celeba.py`](/katacv/G_VAE/constant_celeba.py)：分别为MNIST、cifar10和celeba训练所需的全部超参数。
 8. [`katacv/utils/mini_data/build_dataset.py`](/katacv/utils/mini_data/build_dataset.py)：包含构建数据集的 `DatasetBuilder` 类，用于创建 `tf.data.Dataset` 数据集，用于模型训练及预测。
 
