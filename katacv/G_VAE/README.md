@@ -22,8 +22,12 @@
     <img src="../../archives/figures/G-VAE_cifar10_aug.jpg" alt="G-VAE对MNIST进行数据增强" width="45%" />
     <img src="../../archives/figures/VAE_cifar10_aug.jpg" alt="VAE对MNIST进行数据增强" width="45%" />
 </div>
+**celeba**（左G-VAE，右VAE，最右列为加入Gauss噪声后的增强结果）
 
-
+<div style="display: flex; flex-wrap: nowrap; justify-content: space-between;">
+    <img src="../../archives/figures/G-VAE_celeba_aug.jpg" alt="G-VAE对MNIST进行数据增强" width="45%" />
+    <img src="../../archives/figures/VAE_celeba_aug.jpg" alt="VAE对MNIST进行数据增强" width="45%" />
+</div>
 
 ## 代码框架
 

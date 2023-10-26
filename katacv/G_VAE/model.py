@@ -310,8 +310,8 @@ def test_vae():
 
 def test_g_vae():
   from katacv.G_VAE.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
-  # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
+  # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
+  args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
   state = get_g_vae_model_state(args, verbose=True)
   (distrib, image, logits), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},
