@@ -23,7 +23,7 @@ def model_step(
   train: bool
 ):
   def loss_fn(params):
-    (distrib, logits), updates = state.apply_fn(
+    (distrib, logits, _), updates = state.apply_fn(
       {'params': params, 'batch_stats': state.batch_stats},
       x, train=train, rngs={'sample_key': state.sample_key},
       mutable=['batch_stats']

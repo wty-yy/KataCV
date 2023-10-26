@@ -5,7 +5,6 @@ from katacv.utils.parser import CVArgs
 def load_weights(state: train_state.TrainState, args: CVArgs) -> train_state.TrainState:
     if args.load_id == 0: return state
     path_load = args.path_cp.joinpath(f"{args.model_name}-{args.load_id:04}")
-    assert(path_load.exists())
     with open(path_load, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
     print(f"Successfully load weights from '{str(path_load)}'")

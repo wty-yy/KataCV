@@ -155,7 +155,7 @@ class VAE(nn.Module):
       output_shape=self.image_shape,
       stage_length=len(self.encoder_stage_size) + 1,
     )(z, scales, train=train)
-    return distrib, decode
+    return distrib, decode, scales
 
 class G_VAE(nn.Module):
   image_shape: Sequence[int]
@@ -186,7 +186,7 @@ class G_VAE(nn.Module):
       stage_length=len(self.encoder_stage_size) + 1,
     )(z, scales, train=train)
     logits = nn.Dense(self.class_num)(mu)  # add
-    return distrib, decode, logits
+    return distrib, decode, logits, scales
 
 class TrainState(train_state.TrainState):
   batch_stats: dict
@@ -227,17 +227,18 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
 
 def get_decoder_state(args: VAEArgs, verbose=False):
   model = Decoder(
+    filters=args.decoder_start_filters,
     output_shape=args.image_shape,
-    stage_size=args.decoder_stage_size
+    stage_length=len(args.encoder_stage_size) + 1,
   )
   feature = jnp.empty((args.batch_size, args.feature_size))
   if verbose:
     print(model.tabulate(jax.random.PRNGKey(args.seed), feature, train=False))
-  variables = model.init(jax.random.PRNGKey(args.seed), feature, train=False)
+  # variables = model.init(jax.random.PRNGKey(args.seed), feature, train=False)
   return TrainState.create(
     apply_fn=model.apply,
-    params=variables['params'],
-    batch_stats=variables['batch_stats'],
+    params={},
+    batch_stats={},
     sample_key=None,
     tx=optax.adam(learning_rate=args.learning_rate)
   )

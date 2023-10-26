@@ -78,13 +78,18 @@ def show_image_change(x1, x2, n=10, name="image_change"):
   image.save(str(pred_args.path_figures.joinpath(name+'.jpg')))
   image.show()
 
-def decoder_predict(z):
-  aug = jax.device_get(predict(decoder_state, z))
+@jax.jit
+def decoder_predict(decoder_state, x, scales):
+  aug = decoder_state.apply_fn(
+    {'params': decoder_state.params, 'batch_stats': decoder_state.batch_stats},
+    x, scales, train=False
+  )
+  # aug = jax.device_get(predict(decoder_state, z, scales))
   aug = (aug - aug.min()) / (aug.max() - aug.min())
   return aug
 
 def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
-  distrib, _, _ = jax.device_get(predict(state, x))
+  distrib, _, _, scales = jax.device_get(predict(state, x))
   mu, logsigma2 = distrib
   sigma = np.sqrt(np.exp(logsigma2))
   # print(np.sort(sigma, axis=-1)[0])
@@ -102,13 +107,13 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
   pos, neg = [], []
   for i in range(n//2):
     z = mu - i * delta * 0.5
-    aug = decoder_predict(z)
+    aug = jax.device_get(decoder_predict(state, z, scales))
     # aug = np.clip(aug, 0, 1)
     neg.append(aug)
     # image = np.concatenate([image, aug], axis=2)
 
     z = mu + i * delta * 0.5
-    aug = decoder_predict(z)
+    aug = jax.device_get(decoder_predict(state, z, scales))
     # aug = np.clip(aug, 0, 1)
     pos.append(aug)
     # image = np.concatenate([image, aug], axis=2)
@@ -122,7 +127,7 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
   # Gauss augmentatiton
   np.random.seed(42)
   z = mu + np.random.randn(*mu.shape)
-  aug = decoder_predict(z)
+  aug = jax.device_get(decoder_predict(state, z, scales))
   image = np.concatenate([image, aug], axis=2)
   image = image.reshape((-1, *image.shape[-2:]))
 
@@ -138,14 +143,18 @@ if __name__ == '__main__':
   from katacv.G_VAE.parser import get_args_and_writer
   # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='MNIST')
   # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
-  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
+  # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
+  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba', use_unet=True)
   pred_args = get_args()
   vae_args.batch_size = pred_args.row * pred_args.column
   pred_args.path_figures = vae_args.path_logs.joinpath("figures")
   pred_args.path_figures.mkdir(exist_ok=True)
 
   ### Initialize model state ###
-  from katacv.G_VAE.model import get_g_vae_model_state, get_decoder_state
+  if not vae_args.use_unet:
+    from katacv.G_VAE.model import get_g_vae_model_state, get_decoder_state
+  else:
+    from katacv.G_VAE.model_unet import get_g_vae_model_state, get_decoder_state
   state = get_g_vae_model_state(vae_args)
   decoder_state = get_decoder_state(vae_args)
 
