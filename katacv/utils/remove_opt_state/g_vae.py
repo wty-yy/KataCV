@@ -16,8 +16,8 @@ from katacv.G_VAE.parser import get_args_and_writer
 def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/G-VAE/celeba/G-VAE2048-0010",  # change
-    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/G-VAE/celeba/VAE2048-0010",  # change
+    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/G-VAE/celeba/G-VAE2048-0010",  # change
+    # parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/G-VAE/celeba/VAE2048-0010",  # change
         help="the original model weights path")
     return parser.parse_args()
 
@@ -26,8 +26,10 @@ if __name__ == '__main__':
     print(f"Loading the state from '{str(args.path)}'...")
     name = args.path.parent.parent.name
     vae_args = get_args_and_writer(no_writer=True, input_args=[], model_name=name, dataset_name="celeba")
-    # state = get_g_vae_model_state(vae_args)
-    state = get_vae_model_state(vae_args)
+    if 'G-VAE' in args.path.name:
+        state = get_g_vae_model_state(vae_args)
+    else:
+        state = get_vae_model_state(vae_args)
     full_path = args.path
     with open(full_path, 'rb') as file:
         state = flax.serialization.from_bytes(state, file.read())
