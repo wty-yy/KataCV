@@ -13,6 +13,7 @@
 | ResNet50    | ImageNet | OK (val-top5: 92.53%, top1: 75.47%)     |  JAX | [Paper](https://arxiv.org/pdf/1512.03385.pdf)  |
 | YOLOv1-DarkNet    |  ImageNet | OK (val-top5: 89.39%, top1: 69.1%)     | JAX  | [Paper](https://arxiv.org/pdf/1506.02640.pdf)/[Blog](https://wty-yy.space/posts/1018/)    |
 | YOLOv3-DarkNet53  | ImageNet  | OK (val-top5: 92.6%, top1: 75.77%)     |  JAX   | [Paper](https://arxiv.org/pdf/1804.02767.pdf)/[Blog](https://wty-yy.space/posts/50137/)    |
+| G-VAE (VAE)    | MNIST,cifar10,celeba  | OK   | JAX   | [Usage](/katacv/G_VAE/)    |
 |     |      |      |     |     |
 
 ## 目标检测
