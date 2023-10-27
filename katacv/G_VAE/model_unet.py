@@ -108,6 +108,7 @@ class Decoder(nn.Module):
   filters: int
   output_shape: int
   stage_length: int
+  concat_num: int
   act: Callable = mish
 
   @nn.compact
@@ -123,7 +124,8 @@ class Decoder(nn.Module):
     x = x.reshape(x.shape[0], *input_shape)
     for i in range(self.stage_length):
       n = x.shape[-1]
-      x = jnp.concatenate([x, scales[-(i+1)]], axis=-1)
+      if i < self.concat_num:  # how many concat?
+        x = jnp.concatenate([x, scales[-(i+1)]], axis=-1)
       x = neck(filters=n//2)(x)
     x = conv(filters=x.shape[-1]*2, kernel=(3,3))(x)
     x = conv(filters=self.output_shape[-1], kernel=(1,1))(x)
@@ -134,6 +136,7 @@ class VAE(nn.Module):
   encoder_start_filters: int
   encoder_stage_size: Sequence[int]
   decoder_start_filters: int
+  concat_num: int
   feature_size: int
 
   @nn.compact
@@ -154,6 +157,7 @@ class VAE(nn.Module):
       filters=self.decoder_start_filters,
       output_shape=self.image_shape,
       stage_length=len(self.encoder_stage_size) + 1,
+      concat_num=self.concat_num,
     )(z, scales, train=train)
     return distrib, decode, scales
 
@@ -163,6 +167,7 @@ class G_VAE(nn.Module):
   encoder_start_filters: int
   encoder_stage_size: Sequence[int]
   decoder_start_filters: int
+  concat_num: int
   feature_size: int
 
   @nn.compact
@@ -184,6 +189,7 @@ class G_VAE(nn.Module):
       filters=self.decoder_start_filters,
       output_shape=self.image_shape,
       stage_length=len(self.encoder_stage_size) + 1,
+      concat_num=self.concat_num,
     )(z, scales, train=train)
     logits = nn.Dense(self.class_num)(mu)  # add
     return distrib, decode, logits, scales
@@ -207,7 +213,8 @@ def get_vae_model_state(args: VAEArgs, verbose=False):
     encoder_start_filters=args.encoder_start_filters,
     encoder_stage_size=args.encoder_stage_size,
     decoder_start_filters=args.decoder_start_filters,
-    feature_size=args.feature_size
+    feature_size=args.feature_size,
+    concat_num=args.concat_num,
   )
   args.learning_rate_fn = get_learning_rate_fn(args)
   if verbose:
@@ -250,7 +257,8 @@ def get_g_vae_model_state(args: VAEArgs, verbose=False):
     encoder_start_filters=args.encoder_start_filters,
     encoder_stage_size=args.encoder_stage_size,
     decoder_start_filters=args.decoder_start_filters,
-    feature_size=args.feature_size
+    feature_size=args.feature_size,
+    concat_num=args.concat_num,
   )
   args.learning_rate_fn = get_learning_rate_fn(args)
   if verbose:
@@ -287,7 +295,7 @@ def test_g_vae():
   # args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
   args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba', use_unet=True)
   state = get_g_vae_model_state(args, verbose=True)
-  (distrib, image, logits), updates = state.apply_fn(
+  (distrib, image, logits, scales), updates = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},
     x=jnp.empty(args.input_shape),
     train=True,
@@ -297,6 +305,7 @@ def test_g_vae():
   print(distrib[0].shape, distrib[1].shape, image.shape, logits.shape)
   print(state.params.keys())
   print(jax.tree_map(lambda x: x.shape, state.params['Dense_0']))
+  print(len(scales), [a.shape for a in scales])
 
 if __name__ == '__main__':
   # test_classify_mnist()

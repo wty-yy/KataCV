@@ -18,6 +18,7 @@ class VAEArgs(CVArgs):
   decoder_stage_size: Tuple[int]  # no unet
   encoder_start_filters: int  # unet
   decoder_start_filters: int  # unet
+  concat_num: int  # uint
   feature_size: int
   use_unet: bool
   ### Train ###
@@ -66,6 +67,8 @@ def get_args_and_writer(
       help="the start filters size of the encoder model")
     parser.add_argument("--decoder-start-filters", type=int, default=const.decoder_start_filters,
       help="the start filters size of the decoder model")
+    parser.add_argument("--concat-num", type=int, default=const.concat_num,
+      help="the number of concat the previous features")
   parser.add_argument("--feature-size", type=int, default=const.feature_size,
     help="the dimension size of the feature")
   ### Training config ###

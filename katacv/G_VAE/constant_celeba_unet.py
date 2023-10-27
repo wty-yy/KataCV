@@ -17,12 +17,14 @@ class_num = 4
 # encoder_stage_size = (3, 6, 8, 3)
 encoder_start_filters = 64
 encoder_stage_size = (1, 2, 4, 2)
-decoder_start_filters = encoder_start_filters * (2 ** (len(encoder_stage_size) - 1))  # 512
+# decoder_start_filters = encoder_start_filters * (2 ** (len(encoder_stage_size) - 1))  # 512
+decoder_start_filters = 1024
 # decoder_stage_size = (2, 2, 2)
 feature_size = 2048
+concat_num = 0
 
 ### Training config ###
-total_epochs = 5
+total_epochs = 10
 learning_rate = 5e-4
 coef_kl_loss = 2.5e-3
 coef_cls_loss = 20.0

@@ -11,6 +11,8 @@
 1. clip variance by rate: 0.05, 0.1, 0.3
 Optimize:
 1. change the output of the image layout
+2023/10/27: Merge G-VAE and VAE to one file, just change `Initialize arguments`
+in 137~141 lines.
 '''
 import os, sys
 sys.path.append(os.getcwd())
@@ -79,17 +81,19 @@ def show_image_change(x1, x2, n=10, name="image_change"):
   image.show()
 
 @jax.jit
-def decoder_predict(decoder_state, x, scales):
+def decoder_predict(decoder_state, x):
   aug = decoder_state.apply_fn(
     {'params': decoder_state.params, 'batch_stats': decoder_state.batch_stats},
-    x, scales, train=False
+    *x, train=False
   )
   # aug = jax.device_get(predict(decoder_state, z, scales))
   aug = (aug - aug.min()) / (aug.max() - aug.min())
   return aug
 
 def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
-  distrib, _, _, scales = jax.device_get(predict(state, x))
+  output = jax.device_get(predict(state, x))
+  distrib = output[0]
+  scales = output[-1] if vae_args.use_unet else None
   mu, logsigma2 = distrib
   sigma = np.sqrt(np.exp(logsigma2))
   # print(np.sort(sigma, axis=-1)[0])
@@ -98,22 +102,26 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
   delta = np.where(sigma >= threshold, sigma, 0)
   plt.hist(sigma[0], bins=50)
   plt.hist(delta[0][delta[0] > 0], bins=50)
-  plt.close()
-  # plt.show()
+  # plt.close()
+  plt.show()
   # delta = delta / (delta**2).sum(-1)[:,None]
   # delta = sigma / (sigma ** 2).sum(-1)[:,None]
   # delta = sigma / sigma.sum(-1)[:,None]
   print(mu.mean(), sigma.mean())
   pos, neg = [], []
+  if vae_args.use_unet:
+    decode = lambda z: jax.device_get(decoder_predict(decoder_state, (z, scales)))
+  else:
+    decode = lambda z: jax.device_get(decoder_predict(decoder_state, (z,)))
   for i in range(n//2):
     z = mu - i * delta * 0.5
-    aug = jax.device_get(decoder_predict(state, z, scales))
+    aug = decode(z)
     # aug = np.clip(aug, 0, 1)
     neg.append(aug)
     # image = np.concatenate([image, aug], axis=2)
 
     z = mu + i * delta * 0.5
-    aug = jax.device_get(decoder_predict(state, z, scales))
+    aug = decode(z)
     # aug = np.clip(aug, 0, 1)
     pos.append(aug)
     # image = np.concatenate([image, aug], axis=2)
@@ -127,7 +135,7 @@ def show_image_aug(x, n=10, name='image_aug', threshold_rate=0.1):
   # Gauss augmentatiton
   np.random.seed(42)
   z = mu + np.random.randn(*mu.shape)
-  aug = jax.device_get(decoder_predict(state, z, scales))
+  aug = decode(z)
   image = np.concatenate([image, aug], axis=2)
   image = image.reshape((-1, *image.shape[-2:]))
 
@@ -143,8 +151,9 @@ if __name__ == '__main__':
   from katacv.G_VAE.parser import get_args_and_writer
   # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='MNIST')
   # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='cifar10')
-  # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
-  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba', use_unet=True)
+  # vae_args = get_args_and_writer(no_writer=True, model_name='VAE', dataset_name='celeba')
+  vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba')
+  # vae_args = get_args_and_writer(no_writer=True, model_name='G-VAE', dataset_name='celeba', use_unet=True)
   pred_args = get_args()
   vae_args.batch_size = pred_args.row * pred_args.column
   pred_args.path_figures = vae_args.path_logs.joinpath("figures")
@@ -152,10 +161,18 @@ if __name__ == '__main__':
 
   ### Initialize model state ###
   if not vae_args.use_unet:
-    from katacv.G_VAE.model import get_g_vae_model_state, get_decoder_state
+    from katacv.G_VAE.model import get_decoder_state
+    if 'G-VAE' in vae_args.model_name:
+      from katacv.G_VAE.model import get_g_vae_model_state as get_model_state
+    else:
+      from katacv.G_VAE.model import get_vae_model_state as get_model_state
   else:
-    from katacv.G_VAE.model_unet import get_g_vae_model_state, get_decoder_state
-  state = get_g_vae_model_state(vae_args)
+    from katacv.G_VAE.model_unet import get_decoder_state
+    if 'G-VAE' in vae_args.model_name:
+      from katacv.G_VAE.model_unet import get_g_vae_model_state as get_model_state
+    else:
+      from katacv.G_VAE.model_unet import get_vae_model_state as get_model_state
+  state = get_model_state(vae_args)
   decoder_state = get_decoder_state(vae_args)
 
   ### Load weights ###
@@ -196,7 +213,8 @@ if __name__ == '__main__':
     #   name=f"image_change_{i}"
     # )
     # rate = 0.1  # mnist
-    rate = 0.05
+    rate = 0.05  # celeba origin
+    # rate = 1.0
     show_image_aug(
       x1,
       n=14,
@@ -204,8 +222,9 @@ if __name__ == '__main__':
       threshold_rate=rate
     )
   xs = np.concatenate(xs, axis=0)
-  show_image_aug(  # some good augmentation in cifar10
-    xs[[1,9,10,12,15,18,19,20,24,26]],
+  show_image_aug(  # some good augmentation
+    # xs[[1,9,10,12,15,18,19,20,24,26]],  # cifar10
+    xs[[0,1,3,4,6,12,13,16,20,28]],  # cifar10
     n=14,
     name=f"image_aug_rate_{rate}_good",
     threshold_rate=rate
