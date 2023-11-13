@@ -6,6 +6,7 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : Darknet53
+Total Parameters: 41,645,640 (166.6 MB) 
 2023.09.21. 开始训练
 2023.09.22. 完成30epochs的训练，但是效果较差：val-top1 74.45%, val-top5 91.81%比resnet50还差
 2023.09.22. 重新训练50epochs, remove batch normalize bias and use mish as activate function
