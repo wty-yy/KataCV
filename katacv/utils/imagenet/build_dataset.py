@@ -24,6 +24,7 @@ args = Args(
 )
 '''
 import tensorflow as tf
+tf.config.experimental.set_visible_devices([], "GPU")  # don't use gpu
 from typing import NamedTuple
 
 def preprocess_tfrecord(example):
