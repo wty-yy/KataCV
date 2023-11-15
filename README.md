@@ -13,6 +13,7 @@
 | ResNet50    | ImageNet | OK (val-top5: 92.53%, top1: 75.47%)     |  JAX | [Paper](https://arxiv.org/pdf/1512.03385.pdf)  |
 | YOLOv1-DarkNet    |  ImageNet | OK (val-top5: 89.39%, top1: 69.1%)     | JAX  | [Paper](https://arxiv.org/pdf/1506.02640.pdf)/[Blog](https://wty-yy.space/posts/1018/)    |
 | YOLOv3-DarkNet53  | ImageNet  | OK (val-top5: 92.6%, top1: 75.77%)     |  JAX   | [Paper](https://arxiv.org/pdf/1804.02767.pdf)/[Blog](https://wty-yy.space/posts/50137/)    |
+| YOLOv4-CSPDarkNet53  | ImageNet  | OK (val-top5: 93.16%, top1: 76.55%)     |  JAX   | [Paper](https://arxiv.org/pdf/2004.10934.pdf)/[Network Struct](https://netron.app/?url=https%3A%2F%2Fraw.githubusercontent.com%2FAlexeyAB%2Fdarknet%2Fmaster%2Fcfg%2Fyolov4-csp.cfg)    |
 | G-VAE (VAE)    | MNIST,cifar10,celeba  | OK   | JAX   | [PDF](https://github.com/wty-yy/wty-yy.github.io/blob/master/file/ML%E7%AE%97%E6%B3%95%E6%8E%A2%E7%B4%A2G-VAE.pdf)/[Blog](https://wty-yy.space/posts/8693/)/[Result](/katacv/G_VAE/) |
 |     |      |      |     |     |
 
