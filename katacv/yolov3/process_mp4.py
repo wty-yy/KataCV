@@ -28,7 +28,7 @@ def main(args):
 
     processed_frames = []
 
-    from katacv.utils.detection import plot_boxes_PIL, nms_boxes_and_mask
+    from katacv.utils.detection import plot_box_PIL, nms_boxes_and_mask
     from katacv.utils.VOC.label2realname import label2realname
     from katacv.yolov3.yolov3_predict import predict
     label2realname = label2realname[args.label_type]
@@ -53,7 +53,7 @@ def main(args):
         boxes = np.array(boxes[mask])
         image = Image.fromarray(frame)
         for i in range(boxes.shape[0]):
-            image = plot_boxes_PIL(image, boxes[i,1:5], text=f"{label2realname[int(boxes[i,5])]} {float(boxes[i,0]):.2f}")
+            image = plot_box_PIL(image, boxes[i,1:5], text=f"{label2realname[int(boxes[i,5])]} {float(boxes[i,0]):.2f}")
         processed_frames.append(np.array(image))
         fps_avg += (1/(time.time() - start_time) - fps_avg) / (idx+1)
         bar.set_description(f"SPS:{SPS_avg:.2f} fps:{fps_avg:.2f}")

@@ -29,6 +29,7 @@ class CVArgs(NamedTuple):
     run_name: str
     input_shape: tuple
     # Dataset
+    path_dataset: Path
     path_dataset_tfrecord: Path
     batch_size: int
     shuffle_size: int

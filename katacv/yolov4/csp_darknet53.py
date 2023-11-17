@@ -11,9 +11,7 @@ Total Parameters: 27,656,008 (110.6 MB)
 '''
 
 import sys, os
-from typing import Any
 sys.path.append(os.getcwd())
-os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '.90'
 
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *

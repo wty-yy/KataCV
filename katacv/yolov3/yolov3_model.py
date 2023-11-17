@@ -9,10 +9,6 @@
 2023/09/24: complete `neck` module.
 2023/09/26: freeze `darknet` module.
 '''
-
-if __name__ == '__main__':
-    pass
-
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.yolov3.darknet53 import DarkNet, ConvBlock
