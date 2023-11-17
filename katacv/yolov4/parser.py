@@ -10,7 +10,6 @@ class YOLOv4Args(CVArgs):
   num_data_workers: int
   ### Model ###
   anchors: List[Tuple[int, int]]
-  ignore_threshold: float
   path_darknet_weights: Path
   ### Training ###
   warmup_epochs: int
@@ -22,6 +21,8 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv4Args, S
   ### Model ###
   parser.add_argument("--anchors", nargs='+', default=cfg.anchors,
     help="the anchors bounding boxes")
+  parser.add_argument("--path-darknet-weights", type=cvt2Path, default=cfg.path_darknet_weights,
+    help="the path of the CSP-DarkNet53 weights")
   ### Dataset ###
   parser.add_argument("--path-dataset", type=cvt2Path, default=cfg.path_dataset,
     help="the path of the dataset")

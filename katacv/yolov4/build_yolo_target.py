@@ -10,9 +10,15 @@ def build_target(
     pred_pixel: List[jax.Array],
     anchors: jax.Array,  # (3, 3, 2)
     iou_ignore: float = 0.5
-  ):
+  ) -> Tuple[List[jax.Array], List[jax.Array]]:
+  """
+  Return: Tuple -> (target, mask_noobj)
+    target[i].shape = (3, Hi, Wi, 6)  # (x,y,w,h,c,label)
+    mask_noobj[i].shape = (3, Hi, Wi)
+    i = 0, 1, 2 means three diff scales 2 ** (i + 3)
+  """
   params = jnp.array(params)
-  target = [jnp.zeros_like(pred_pixel[i]) for i in range(3)]
+  target = [jnp.zeros((*pred_pixel[i].shape[:3],6)) for i in range(3)]
   mask = [jnp.zeros(pred_pixel[i].shape[:3], dtype=jnp.bool_) for i in range(3)]
   bboxes, labels = params[:, :4], params[:, 4].astype(jnp.int32)
   i = 0
@@ -40,8 +46,8 @@ def build_target(
     # print(j, k, bbox, cell, anchors[j,k])
     def update_fn(value):
       target, mask = value
-      target = target.at[k,cell[1],cell[0],:5].set(jnp.r_[bbox, 1])
-      target = target.at[k,cell[1],cell[0],5+label].set(1)
+      target = target.at[k,cell[1],cell[0]].set(jnp.r_[bbox, 1, label])
+      # target = target.at[k,cell[1],cell[0],5+label].set(1)
       mask = mask.at[k,cell[1],cell[0]].set(True)
       return target, mask
     for o in range(3):
@@ -55,13 +61,8 @@ def build_target(
     # print(target[j][k,cell[1],cell[0]])
   target, mask = jax.lax.fori_loop(0, num_bboxes, loop_bbox_i_fn, (target, mask))
   for i in range(3):
-    mask[i] = mask[i] ^ True
+    mask[i] = (mask[i] ^ True)[..., None]
   return target, mask
-
-# def cvt_pred2xywh(output: jax.Array):
-#   xy = (jax.nn.sigmoid(output[...,:2]) - 0.5) * 1.1 + 0.5
-#   wh = (jax.nn.sigmoid(output[...,2:4])*2)**2
-#   return jnp.concatenate([xy, wh, output[...,4:]], axis=-1)
 
 @jax.jit
 def cell2pixel_coord(xy, scale: int):
@@ -86,7 +87,7 @@ def cell2pixel(
 
 import numpy as np
 from katacv.utils.coco.build_dataset import show_bbox
-def test_show(image, target, anchors):
+def test_target_show(image, target, anchors):
   result_bboxes = []
   for i in range(3):
     # org_target = target[i]
@@ -95,8 +96,8 @@ def test_show(image, target, anchors):
       # print(f"Anchor {j} params in scale {2**(i+3)} (org target):", org_target[j][(org_target[j,...,4]==1) & (org_target[j,...,5+58]==1)])
       # print(f"Anchor {j} params in scale {2**(i+3)} (cvt target):", cvt_target[j][(cvt_target[j,...,4]==1) & (cvt_target[j,...,5+0]==1)])
       params = cvt_target[j][cvt_target[j,...,4]==1]  # (N,5+num_classes)
-      for x,y,w,h,c,*p in params:
-        result_bboxes.append(np.stack([x,y,w,h,np.argmax(p)]))
+      for x,y,w,h,c,label in params:
+        result_bboxes.append(np.stack([x,y,w,h,label]))
   if len(result_bboxes):
     result_bboxes = np.stack(result_bboxes)
   print("num bbox:", len(result_bboxes))
@@ -126,6 +127,8 @@ if __name__ == '__main__':
     target, mask = jax.vmap(build_target, in_axes=(0,0,0,None), out_axes=0)(
       params, num_bboxes, pred, args.anchors
     )
+    for i in range(3):
+      print(target[i].shape, mask[i].shape)
     for i in range(args.batch_size):
-      test_show(images[i], [x[i] for x in target], args.anchors)
-    # break
+      test_target_show(images[i], [x[i] for x in target], args.anchors)
+    break

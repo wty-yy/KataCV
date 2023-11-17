@@ -40,8 +40,8 @@ class ScalePredictor(nn.Module):
   def __call__(self, x):
     x = self.conv(filters=x.shape[-1]*2, kernel=(3,3))(x)
     x = self.conv(filters=3*(5+self.num_classes), kernel=(1,1), use_norm=False, use_act=False)(x)
-    # Shape: [N, H, W, 3, 5 + num_classes]
-    return x.reshape((*x.shape[:3], 3, 5 + self.num_classes))
+    # Shape: [N, 3, H, W, 5 + num_classes]
+    return x.reshape((x.shape[0], 3, *x.shape[1:3], 5 + self.num_classes))
 
 class PANet(nn.Module):  # Path Aggregation Network
   num_classes: int
@@ -148,3 +148,5 @@ if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   args = get_args_and_writer(no_writer=True)
   state = get_yolov4_state(args, verbose=True)
+  print(state.params.keys(), state.batch_stats.keys())
+  # 'CSPDarkNet_0', 'PANet_0'
