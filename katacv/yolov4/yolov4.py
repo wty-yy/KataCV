@@ -43,38 +43,39 @@ def model_step(
     target.shape = (N, 3, H, W, 6)
     mask_noobj.shape = (N, 3, H, W, 1)
     """
-    def bce(logits, y):  # binary cross-entropy, shape=(N,M)
+    def bce(logits, y):  # binary cross-entropy
       return -(
         y*jax.nn.log_sigmoid(logits)
         + (1-y)*jax.nn.log_sigmoid(-logits)
-      ).sum(-1).mean()
+      ).mean()
 
-    def ciou(bbox1, bbox2):  # Complete IOU loss, shape=(N,M,4)
-      ciou_fn = partial(iou, format='ciou')
+    def ciou(bbox1, bbox2):  # Complete IOU loss
+      ciou_fn = partial(iou, format='ciou', keepdim=True)
       return jax.vmap(
         ciou_fn, in_axes=(0,0), out_axes=0
-      )(bbox1, bbox2).sum(-1).mean()
+      )(bbox1, bbox2).mean()
 
-    def ce(logits, y_sparse):  # cross-entropy, shape=(N,M), (N,)
+    def ce(logits, y_sparse):  # cross-entropy
       y_onehot = jax.nn.one_hot(y_sparse, num_classes=logits.shape[-1])
-      return -(jax.nn.log_softmax(logits), y_onehot).sum(-1).mean()
+      return -(jax.nn.log_softmax(logits) * y_onehot).mean()
 
     N = pred_cell.shape[0]
     mask_obj = target[...,4:5] == 0.0
 
     ### no object loss ###
-    loss_noobj = bce((mask_noobj*pred_cell)[...,4].reshape(N,-1), 0.0)
+    # print("1:", mask_noobj.shape, mask_obj.shape, pred_cell.shape)
+    loss_noobj = bce((mask_noobj*pred_cell)[...,4:5], 0.0)
     ### coordinate loss ###
     loss_coord = ciou(
-      (mask_obj * pred_cell)[..., :4].reshape(N, -1, 4),
-      target[..., :4].reshape(N, -1, 4)
+      (mask_obj * pred_cell)[..., :4],
+      target[..., :4]
     )
     ### object loss ###
-    loss_obj = bce((mask_obj*pred_cell)[...,4].reshape(N,-1), 1.0)
+    loss_obj = bce((mask_obj*pred_cell)[...,4:5], 1.0)
     ### class loss ###
     loss_class = ce(
-      (mask_obj * pred_cell)[..., 5:].reshape(N, -1),
-      target[..., 5].reshape(N,-1)
+      (mask_obj * pred_cell)[..., 5:],
+      target[..., 5]
     )
 
     loss = loss_noobj + loss_coord + loss_obj + loss_class
@@ -87,7 +88,9 @@ def model_step(
     )
     pred_cell = [logits2cell(logits[i]) for i in range(3)]
     pred_pixel = jax.lax.stop_gradient([
-      cell2pixel(pred_cell[i], 2**(i+3), args.anchors[i])
+      jax.vmap(cell2pixel, in_axes=(0,None,None), out_axes=0)(
+        pred_cell[i], 2**(i+3), args.anchors[i]
+      )
       for i in range(3)
     ])
     targets, mask_noobjs = jax.vmap(
@@ -148,12 +151,12 @@ if __name__ == '__main__':
       print(f"epoch: {epoch}/{args.total_epochs}")
       print("training...")
       logs.reset()
-      for x, y in tqdm(train_ds):
-        x, y = x.numpy(), y.numpy()
+      for images, bboxes, num_bboxes in tqdm(train_ds):
+        images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
         global_step += 1
-        state, (loss, pred) = model_step(state, x, y, train=True)
+        state, (loss, pred) = model_step(state, images, bboxes, num_bboxes, train=True)
         logs.update(
-          ['loss_train'], loss
+          ['loss_train'], [loss]
         )
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
@@ -169,9 +172,10 @@ if __name__ == '__main__':
           logs.reset()
       print("validating...")
       logs.reset()
-      for x, y in tqdm(val_ds):
-        x, y = x.numpy(), y.numpy()
-        _, (loss, pred) = model_step(state, x, y, train=False)
+      for images, bboxes, num_bboxes in tqdm(val_ds):
+        images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
+        global_step += 1
+        _, (loss, pred) = model_step(state, images, bboxes, num_bboxes, train=False)
         logs.update(
           ['loss_val', 'epoch', 'learning_rate'],
           [loss, epoch, args.learning_rate_fn(state.step)]

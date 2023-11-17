@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : build_dataset.py
+@Time    : 2023/11/18 00:53:17
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+BUG: The bboxes file:
+`./bboxes/000000200365.txt` line 3,
+`./bboxes/000000550395.txt` line 15
+have 0 wide, we should remove it.
+'''
+
+if __name__ == '__main__':
+  pass
+
 from katacv.utils.related_pkgs.utility import *
 from katacv.yolov4.parser import YOLOv4Args, get_args_and_writer
 from torch.utils.data import Dataset, DataLoader
@@ -110,7 +127,11 @@ class YOLODataset(Dataset):
       print(image.shape, bboxes.shape)
       print(bboxes)
     if self.transform:
-      transformed = self.transform(image=image, bboxes=bboxes)
+      try:
+        transformed = self.transform(image=image, bboxes=bboxes)
+      except Exception as e:
+        print("Error Id:", self.path_bboxes[index])
+        raise e
       image, bboxes = transformed['image'], np.array(transformed['bboxes'])
     # Maybe remove all the bboxes after transform
     bboxes = self._check_bbox_need_placeholder(bboxes)
@@ -207,14 +228,11 @@ if __name__ == '__main__':
   image, bboxes, num_bboxes = next(iterator)
   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
   print(image.shape, bboxes.shape, num_bboxes.shape)
-  # for image, bboxes, num_bboxes in tqdm(ds):
-  #   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  #   print(image.shape, bboxes.shape, num_bboxes.shape)
-  #   print(type(image))
-  #   break
+  for image, bboxes, num_bboxes in tqdm(ds):
+    image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
   # for i in range(8):
   #   image, bboxes, num_bboxes = next(iterator)
+  #   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
   #   print(image.shape, bboxes.shape, num_bboxes.shape)
-  #   # print(image.shape, bboxes.shape, num_bboxes)
-  #   # show_bbox(image, bboxes[np.arange(num_bboxes)])
+  #   show_bbox(image[0], bboxes[0][np.arange(num_bboxes[0])])
   

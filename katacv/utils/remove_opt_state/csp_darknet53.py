@@ -16,7 +16,7 @@ from katacv.yolov4.csp_darknet53 import PreTrain, CSPDarkNet  # change
 def parse_args():
   from katacv.utils.parser import argparse, cvt2Path
   parser = argparse.ArgumentParser()
-  parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv4/CSPDarkNet53-0050",  # change
+  parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/YOLOv4/CSPDarkNet53-0050",  # change
     help="the original model weights path")
   return parser.parse_args()
 

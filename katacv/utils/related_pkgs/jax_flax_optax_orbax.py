@@ -12,3 +12,7 @@ import optax
 import orbax.checkpoint as ocp
 
 from functools import partial
+
+import os
+# https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '.90'

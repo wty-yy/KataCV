@@ -35,7 +35,9 @@ from pathlib import Path
 from tqdm import tqdm
 import math
 
-path_dataset = Path('/home/wty/Coding/datasets/coco')
+# path_dataset = Path('/home/wty/Coding/datasets/coco')
+path_dataset = Path('/home/yy/Coding/datasets/coco')
+# path_dataset = Path('/media/yy/Data/dataset/COCO')
 path_annotation = path_dataset.joinpath("annotations")
 path_bboxes = path_dataset.joinpath("bboxes")
 path_bboxes.mkdir(exist_ok=True)

@@ -1,5 +1,4 @@
 from katacv.utils.related_pkgs.utility import *
-from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 import katacv.yolov4.config as cfg
 from katacv.utils.parser import Parser, CVArgs, cvt2Path, SummaryWriter, datetime, str2bool
 
