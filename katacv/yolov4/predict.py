@@ -24,7 +24,8 @@ def predict(state: TrainState, images: jax.Array):
 
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, input_args="--load-id 101".split())
+  args = get_args_and_writer(no_writer=True, input_args="--load-id 50".split())
+  args.batch_size = 1
   args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
@@ -37,30 +38,37 @@ if __name__ == '__main__':
   ds_builder = DatasetBuilder(args)
   train_ds = ds_builder.get_dataset(subset='train')
   val_ds = ds_builder.get_dataset(subset='val')
-  sample_ds = ds_builder.get_dataset(subset='sample')
+  sample_ds = ds_builder.get_dataset(subset='sample8')
 
-  # val_iter = iter(val_ds)
+  val_iter = iter(val_ds)
   sample_iter = iter(sample_ds)
-  images, bboxes, num_bboxes = next(sample_iter)
+  # images, bboxes, num_bboxes = next(sample_iter)
+  # images, bboxes, num_bboxes = next(val_iter)
 
-  images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  pred = predict(state, images)
+  test_num = 10
 
-  print(jnp.sort(pred[0,:,4])[::-1][:50])
-  print(bboxes[0][:num_bboxes[0]])
-  # from katacv.utils.coco.build_dataset import show_bbox
-  import numpy as np
-  np.set_printoptions(suppress=True)
-  pred_bboxes = get_pred_bboxes(pred)
-  for i in range(len(pred_bboxes)):
-    print(np.round(np.array(pred_bboxes[i]), 4))
-    print("Predict box num:", jnp.sum(pred_bboxes[i]))
-    show_bbox(images[i], pred_bboxes[i])
-    # AP50 = mAP(bboxes_pred, bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
-    # AP75 = mAP(bboxes_pred, bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
-    # AP = coco_mAP(bboxes_pred, bboxes[i][:num_bboxes[i]])
-    # print(AP50, AP75, AP)
-    break
+  for images, bboxes, num_bboxes in val_ds:
+    images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
+    pred = predict(state, images)
 
-  print(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes))
+    # print(jnp.sort(pred[0,:,4])[::-1][:50])
+    # print(bboxes[0][:num_bboxes[0]])
+    # from katacv.utils.coco.build_dataset import show_bbox
+    import numpy as np
+    np.set_printoptions(suppress=True)
+    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
+    for i in range(len(pred_bboxes)):
+      # print(np.round(np.array(pred_bboxes[i]), 4))
+      # print("Predict box num:", len(pred_bboxes[i]))
+      show_bbox(images[i], pred_bboxes[i])
+      AP50 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
+      AP75 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
+      AP = coco_mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]])
+      print(f"AP50: {AP50:.2f}, AP75: {AP75:.2f}, AP: {AP:.2f}")
+      # break
+    test_num -= 1
+    if test_num == 0:
+      break
+
+    # print(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes))
 

@@ -20,10 +20,10 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
   mask = (boxes[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious < iou_threshold)).astype('bool'))
   return boxes, mask
 
-def get_pred_bboxes(pred):
+def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
   ret = []
   for i in range(pred.shape[0]):
-    bboxes_pred, mask = nms_boxes_and_mask(pred[i])
+    bboxes_pred, mask = nms_boxes_and_mask(pred[i], iou_threshold=iou_threshold, conf_threshold=conf_threshold)
     bboxes_pred = bboxes_pred[mask]
     ret.append(bboxes_pred)
   return ret
@@ -31,7 +31,7 @@ def get_pred_bboxes(pred):
 
 from PIL import Image
 def show_bbox(image, bboxes):
-  print(bboxes)
+  # print(bboxes)
   from katacv.utils.detection import plot_box_PIL, build_label2colors
   from katacv.utils.coco.constant import label2name
   image = Image.fromarray((image*255).astype('uint8'))
@@ -40,7 +40,7 @@ def show_bbox(image, bboxes):
   for bbox in bboxes:
     label = int(bbox[5])
     image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='coco')
-    print(label, label2name[label], label2color[label])
+    # print(label, label2name[label], label2color[label])
   image.show()
 
 def mAP(boxes, target_boxes, iou_threshold=0.5):

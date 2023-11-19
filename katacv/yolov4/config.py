@@ -28,9 +28,9 @@ anchors = jnp.array([  # Specify pixels, shape: (3, 3, 2)
 ])
 
 ### Training ###
-total_epochs = 50
+total_epochs = 300
 batch_size = 32
 learning_rate = 0.001
 weight_decay = 1e-4
-warmup_epochs = 3
+warmup_epochs = 0
 momentum = 0.9  # if optimizer is SGD
