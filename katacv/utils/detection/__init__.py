@@ -190,7 +190,7 @@ def iou_multiply(boxes1, boxes2, format='iou'):
     return result
 
 @partial(jax.jit, static_argnums=[3,4])
-def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, B=3):
+def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, B=3, iou_format='iou'):
     """
     (JAX) Non-Maximum Suppression with `iou_threshold` and `conf_threhold`.
     Make sure to keep the matrices in same size, we must give the maximum number of bounding boxes in an image.
@@ -211,7 +211,7 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
     M = max_num_box * B
     sort_idxs = jnp.argsort(boxes[:,0])[::-1][:M]  # only consider the first `M`
     boxes = boxes[sort_idxs]
-    ious = iou_multiply(boxes[:,1:5], boxes[:,1:5])
+    ious = iou_multiply(boxes[:,1:5], boxes[:,1:5], format=iou_format)
     mask = (boxes[:,0] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
     return boxes, mask
 
@@ -366,7 +366,7 @@ def get_box_colors(n):
     return colors
 
 def build_label2colors(labels):
-    labels = np.unique(labels)
+    labels = np.unique(labels).astype(np.int32)
     colors = get_box_colors(len(labels))
     return dict(zip(labels, colors))
 
@@ -390,3 +390,5 @@ if __name__ == '__main__':
     cc = jnp.array([c,c])
     dd = jnp.array([d1,d2])
     print(iou(cc, dd))
+    e = jnp.array([0,0,0,0])
+    print(iou(e, e, format='ciou'))

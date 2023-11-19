@@ -192,7 +192,8 @@ class DatasetBuilder:
       ],
       bbox_params=A.BboxParams(format='coco', min_visibility=0.4)
     )
-    return val_transform if subset == 'val' else train_transform
+    return train_transform if subset == 'train' else val_transform
+    # return val_transform if subset == 'val' else train_transform
   
   def get_dataset(self, subset: str = 'val', shuffle: bool = True):
     dataset = YOLODataset(
@@ -201,7 +202,7 @@ class DatasetBuilder:
     )
     ds = DataLoader(
       dataset, batch_size=self.args.batch_size,
-      shuffle=subset != 'val',
+      shuffle=subset == 'train',
       num_workers=self.args.num_data_workers,
       drop_last=True,
     )
@@ -216,23 +217,23 @@ def show_bbox(image, bboxes):
   for bbox in bboxes:
     label = int(bbox[4])
     image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='coco')
-    # print(label, label2name[label], label2color[label])
+    print(label, label2name[label], label2color[label])
   image.show()
 
 if __name__ == '__main__':
   args = get_args_and_writer(no_writer=True)
   ds_builder = DatasetBuilder(args)
-  ds = ds_builder.get_dataset(subset='train')
+  ds = ds_builder.get_dataset(subset='sample')
   print("Dataset size:", len(ds))
   iterator = iter(ds)
-  image, bboxes, num_bboxes = next(iterator)
-  image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  print(image.shape, bboxes.shape, num_bboxes.shape)
-  for image, bboxes, num_bboxes in tqdm(ds):
-    image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  # for i in range(8):
-  #   image, bboxes, num_bboxes = next(iterator)
+  # image, bboxes, num_bboxes = next(iterator)
+  # image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
+  # print(image.shape, bboxes.shape, num_bboxes.shape)
+  # for image, bboxes, num_bboxes in tqdm(ds):
   #   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  #   print(image.shape, bboxes.shape, num_bboxes.shape)
-  #   show_bbox(image[0], bboxes[0][np.arange(num_bboxes[0])])
+  for i in range(8):
+    image, bboxes, num_bboxes = next(iterator)
+    image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
+    print(image.shape, bboxes.shape, num_bboxes.shape)
+    show_bbox(image[0], bboxes[0][np.arange(num_bboxes[0])])
   

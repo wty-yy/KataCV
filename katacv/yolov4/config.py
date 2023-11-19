@@ -10,6 +10,7 @@ if dataset_name == 'COCO':
   # path_dataset = Path('/media/yy/Data/dataset/COCO')
   num_classes = 80
   train_ds_size = 118287
+  # train_ds_size = 800  # sample test
   use_mosaic4 = False
 elif dataset_name == 'PASCAL':
   path_dataset = Path("/media/yy/Data/dataset/PASCAL")
@@ -27,9 +28,9 @@ anchors = jnp.array([  # Specify pixels, shape: (3, 3, 2)
 ])
 
 ### Training ###
-total_epochs = 100
+total_epochs = 50
 batch_size = 32
-learning_rate = 0.05
+learning_rate = 0.001
 weight_decay = 1e-4
 warmup_epochs = 3
-momentum = 0.9  # 'sgd'
+momentum = 0.9  # if optimizer is SGD

@@ -4,6 +4,9 @@ logs = Logs(
   init_logs={
     'loss_train': MeanMetric(),
     'loss_val': MeanMetric(),
+    # 'AP50_val': MeanMetric(),
+    # 'AP75_val': MeanMetric(),
+    # 'AP_val': MeanMetric(),
     
     'epoch': 0,
     'SPS': MeanMetric(),
@@ -13,7 +16,10 @@ logs = Logs(
   folder2name={
     'metrics': [
       'loss_train',
-      'loss_val'
+      'loss_val',
+      # 'AP50_val',
+      # 'AP75_val',
+      # 'AP_val'
     ],
     'charts': [
       'SPS', 'SPS_avg',
