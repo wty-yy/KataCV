@@ -111,7 +111,9 @@ if __name__ == '__main__':
   # print(args.anchors)
   ds_builder = DatasetBuilder(args)
   ds = ds_builder.get_dataset(subset='train')
-  for images, params, num_bboxes in ds:
+  bar = tqdm(ds)
+  max_relative_w, max_relative_h = 0, 0
+  for images, params, num_bboxes in bar:
     images, params, num_bboxes = images.numpy(), params.numpy(), num_bboxes.numpy()
     pred = [jnp.empty((
         args.batch_size,
@@ -120,15 +122,19 @@ if __name__ == '__main__':
         5 + args.num_classes
       )) for i in range(3, 6)
     ]
-    print(params.shape, num_bboxes.shape, pred[0].shape)
-    print("total box num:", num_bboxes[0])
+    # print(params.shape, num_bboxes.shape, pred[0].shape)
+    # print("total box num:", num_bboxes[0])
     # print(params[0][:num_bboxes[0]])
     # target, mask = build_target(params[0], num_bboxes[0], [x[0] for x in pred], args.anchors)
     target, mask = jax.vmap(build_target, in_axes=(0,0,0,None), out_axes=0)(
       params, num_bboxes, pred, args.anchors
     )
     for i in range(3):
-      print(target[i].shape, mask[i].shape)
-    for i in range(args.batch_size):
-      test_target_show(images[i], [x[i] for x in target], args.anchors)
-    break
+      max_relative_w = max(max_relative_w, jnp.max(target[i][..., 2]))
+      max_relative_h = max(max_relative_h, jnp.max(target[i][..., 3]))
+      # print(target[i].shape, mask[i].shape)
+    bar.set_description(f"max w: {max_relative_w:.2f}, max h: {max_relative_h:.2f}")
+    # for i in range(args.batch_size):
+    #   test_target_show(images[i], [x[i] for x in target], args.anchors)
+    # break
+  print(max_relative_w, max_relative_h)

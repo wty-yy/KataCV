@@ -23,7 +23,7 @@ class YOLOBlock(nn.Module):
     x = self.conv(filters=self.filters, kernel=(3,3))(x)
     return x
 
-class SSP(nn.Module):  # Spatial Pyramid Pooling
+class SPP(nn.Module):  # Spatial Pyramid Pooling
   @nn.compact
   def __call__(self, x):
     x5 = nn.max_pool(x, (5,5), padding="SAME")
@@ -58,7 +58,7 @@ class PANet(nn.Module):  # Path Aggregation Network
     # Upsampling: b5, b4, b3
     x = block(filters=1024)(a5)
     x = conv(filters=512, kernel=(1,1))(x)
-    x = SSP()(x)
+    x = SPP()(x)
     x = block(filters=1024)(x)
     b5 = conv(filters=512, kernel=(1,1))(x)  # Resolution: S/32
 
