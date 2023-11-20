@@ -31,7 +31,7 @@ if __name__ == '__main__':
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
 
-  from katacv.utils import load_weights
+  from katacv.utils.model_weights import load_weights
   state = load_weights(state, args)
 
   from katacv.utils.coco.build_dataset import DatasetBuilder

@@ -76,12 +76,12 @@ if __name__ == '__main__':
   state = get_g_vae_model_state(args)
 
   ### Load weights ###
-  from katacv.utils import load_weights
+  from katacv.utils.model_weights import load_weights
   state = load_weights(state, args)
 
   ### Save config ###
-  from katacv.utils import SaveWeightsManager
-  save_weight = SaveWeightsManager(args, ignore=True)
+  from katacv.utils.model_weights import SaveWeightsManager
+  save_weight = SaveWeightsManager(args, ignore_exist=True)
 
   ### Initialize dataset ###
   if args.path_dataset.name == 'mnist':

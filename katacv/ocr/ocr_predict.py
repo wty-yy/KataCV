@@ -68,7 +68,7 @@ if __name__ == '__main__':
     from katacv.ocr.cnn_model import get_ocr_cnn_state
     args = get_args_and_writer(no_writer=True)
     state = get_ocr_cnn_state(args)
-    from katacv.utils import load_weights
+    from katacv.utils.model_weights import load_weights
     state = load_weights(state, args)
     
     from katacv.utils.ocr.build_dataset import DatasetBuilder

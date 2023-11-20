@@ -133,7 +133,7 @@ if __name__ == '__main__':
   state = get_yolov4_state(args)
 
   ### Load weights ###
-  from katacv.utils import load_weights
+  from katacv.utils.model_weights import load_weights
   if args.load_id > 0:
     state = load_weights(state, args)
   else:
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     print(f"Successfully load CSP-DarkNet53 from '{str(args.path_darknet_weights)}'")
 
   ### Save config ###
-  from katacv.utils import SaveWeightsManager
-  save_weight = SaveWeightsManager(args, ignore=True)
+  from katacv.utils.model_weights import SaveWeightsManager
+  save_weight = SaveWeightsManager(args, ignore_exist=True, max_to_keep=2)
   
   from katacv.utils.coco.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)

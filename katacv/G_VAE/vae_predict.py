@@ -145,7 +145,7 @@ if __name__ == '__main__':
   decoder_state = get_decoder_state(vae_args)
 
   ### Load weights ###
-  from katacv.utils import load_weights
+  from katacv.utils.model_weights import load_weights
   state = load_weights(state, vae_args)
   decoder_state = decoder_state.replace(
     params=state.params['Decoder_0'],

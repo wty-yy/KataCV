@@ -145,13 +145,13 @@ if __name__ == '__main__':
       # print(target[i].shape, mask[i].shape)
     bar.set_description(f"max w: {max_relative_w:.2f}, max h: {max_relative_h:.2f}")
 
-    # # Target show
-    # for i in range(args.batch_size):
-    #   test_target_show(images[i], [x[i] for x in target], mask, args.anchors)
-    # break
+    # Target show
+    for i in range(args.batch_size):
+      test_target_show(images[i], [x[i] for x in target], mask, args.anchors)
+    break
 
-  with open("./logs/target_wh.npy", 'wb') as file:
-    ws = np.concatenate(ws, axis=0)
-    hs = np.concatenate(hs, axis=0)
-    np.save(file, {'ws': ws, 'hs': hs}, allow_pickle=True)
-  print(max_relative_w, max_relative_h)
+  # with open("./logs/target_wh.npy", 'wb') as file:
+  #   ws = np.concatenate(ws, axis=0)
+  #   hs = np.concatenate(hs, axis=0)
+  #   np.save(file, {'ws': ws, 'hs': hs}, allow_pickle=True)
+  # print(max_relative_w, max_relative_h)

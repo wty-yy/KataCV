@@ -87,11 +87,11 @@ if __name__ == '__main__':
         state = get_ocr_crnn_bilstm_state(args)
 
     ### Load weights ###
-    from katacv.utils import load_weights
+    from katacv.utils.model_weights import load_weights
     state = load_weights(state, args)
 
     ### Save config ###
-    from katacv.utils import SaveWeightsManager
+    from katacv.utils.model_weights import SaveWeightsManager
     save_weight = SaveWeightsManager(args)
 
     ### Initialize dataset ###
