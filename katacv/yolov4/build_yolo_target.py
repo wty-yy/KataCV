@@ -26,12 +26,12 @@ def build_target(
     target, mask = value
     bbox, label = bboxes[i], labels[i]
     # Update ignore examples
-    for j in range(3):
-      iou_pred = iou(
-        bbox, pred_pixel[j][...,:4].reshape(-1,4)
-      ).reshape(mask[j].shape)
-      # TODO: label also need correct.
-      mask[j] = mask[j] | (iou_pred >= iou_ignore)
+    # for j in range(3):
+    #   iou_pred = iou(
+    #     bbox, pred_pixel[j][...,:4].reshape(-1,4)
+    #   ).reshape(mask[j].shape)
+    #   # TODO: label also need correct.
+    #   mask[j] = mask[j] | (iou_pred >= iou_ignore)
     # Update best anchor target
     iou_anchors = iou(bbox[2:4], anchors.reshape(-1, 2))
     best_anchor = jnp.argmax(iou_anchors)
@@ -87,7 +87,7 @@ def cell2pixel(
 
 import numpy as np
 from katacv.utils.coco.build_dataset import show_bbox
-def test_target_show(image, target, anchors):
+def test_target_show(image, target, mask, anchors):
   result_bboxes = []
   for i in range(3):
     # org_target = target[i]
@@ -101,6 +101,7 @@ def test_target_show(image, target, anchors):
   if len(result_bboxes):
     result_bboxes = np.stack(result_bboxes)
   print("num bbox:", len(result_bboxes))
+  print("mask postive num:", sum([(1-mask[i]).sum() for i in range(3)]))
   show_bbox(image, result_bboxes)
 
 if __name__ == '__main__':
@@ -138,3 +139,7 @@ if __name__ == '__main__':
     #   test_target_show(images[i], [x[i] for x in target], args.anchors)
     # break
   print(max_relative_w, max_relative_h)
+  #     print(target[i].shape, mask[i].shape)
+  #   for i in range(args.batch_size):
+  #     test_target_show(images[i], [x[i] for x in target], [x[i] for x in mask], args.anchors)
+  #   break

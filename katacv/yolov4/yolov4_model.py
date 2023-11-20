@@ -140,7 +140,8 @@ def get_yolov4_state(args: YOLOv4Args, verbose=False):
   return TrainState.create(
     apply_fn=model.apply,
     params=variables['params'],
-    tx=optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True),
+    # tx=optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True),
+    tx=optax.adam(learning_rate=args.learning_rate_fn),
     batch_stats=variables['batch_stats']
   )
 
