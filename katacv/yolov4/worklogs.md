@@ -26,7 +26,7 @@
 - [ ] 完成一院比赛的笔记（晚上）
 - [x] 完成对target中wh的分布绘制。（上午）
 - [x] 完成PASCAL VOC数据集的读取工作。（下午）
-- [ ] 利用orbax实现对模型权重的保存，从而废弃掉之前的旧保存方法，可以在读取权重前提下，不对模型进行初始化；考虑创建新的文件katacv.utils.weights，在其中对load_weights和SaveWeightsManager用orbax进行重写（下午）
+- [x] 利用orbax实现对模型权重的保存，从而废弃掉之前的旧保存方法，可以在读取权重前提下，不对模型进行初始化；考虑创建新的文件katacv.utils.weights，在其中对load_weights和SaveWeightsManager用orbax进行重写（下午）
 - [ ] 开始对PASCAL VOC数据集进行训练。（下午）
 - [ ] 晚上记得上人与环境（晚上）
 
