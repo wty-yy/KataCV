@@ -4,7 +4,7 @@ import jax.numpy as jnp
 path_darknet_weights = Path("/home/yy/Coding/models/YOLOv4/CSPDarkNet53-0050-lite")
 
 # dataset_name = 'COCO'  # or 'PASCAL'
-dataset_name = 'PASCAL'  # or 'PASCAL'
+dataset_name = 'PASCAL VOC'  # or 'PASCAL'
 if dataset_name == 'COCO':
   path_dataset = Path("/home/wty/Coding/datasets/coco")
   # path_dataset = Path("/home/yy/Coding/datasets/coco")
@@ -13,9 +13,9 @@ if dataset_name == 'COCO':
   train_ds_size = 118287
   # train_ds_size = 800  # sample test
   use_mosaic4 = False
-elif dataset_name == 'PASCAL':
-  # path_dataset = Path("/media/yy/Data/dataset/PASCAL")
-  path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
+if dataset_name == 'PASCAL VOC':
+  path_dataset = Path("/home/yy/Coding/datasets/PASCAL")
+  # path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
   num_classes = 20
   train_ds_size = 16550
   use_mosaic4 = False
@@ -30,9 +30,13 @@ anchors = jnp.array([  # Specify pixels, shape: (3, 3, 2)
 ])
 
 ### Training ###
-total_epochs = 300
 batch_size = 32
-learning_rate = 0.0001
+if dataset_name == 'COCO':
+  total_epochs = 300
+if dataset_name == 'PASCAL VOC':
+  total_epochs = 100
+base_learning_rate = 2.5e-4
+learning_rate = base_learning_rate * batch_size / 256  # 3e-5
 weight_decay = 1e-4
-warmup_epochs = 0
+warmup_epochs = 2
 momentum = 0.9  # if optimizer is SGD

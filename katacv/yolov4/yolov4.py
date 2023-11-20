@@ -146,7 +146,10 @@ if __name__ == '__main__':
   from katacv.utils.model_weights import SaveWeightsManager
   save_weight = SaveWeightsManager(args, ignore_exist=True, max_to_keep=2)
   
-  from katacv.utils.coco.build_dataset import DatasetBuilder
+  if args.path_dataset.name.lower() == 'coco':
+    from katacv.utils.coco.build_dataset import DatasetBuilder
+  if args.path_dataset.name.lower() == 'pascal':
+    from katacv.utils.pascal.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
   train_ds = ds_builder.get_dataset(subset='train')
   # train_ds = ds_builder.get_dataset(subset='sample')
@@ -171,7 +174,7 @@ if __name__ == '__main__':
         logs.update(
           ['loss_train'], [loss]
         )
-        bar.set_description(f"loss={loss}, lr={args.learning_rate_fn(state.step):.5f}")
+        bar.set_description(f"loss={loss:.4f}, lr={args.learning_rate_fn(state.step):.8f}")
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
             ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
