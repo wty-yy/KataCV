@@ -8,6 +8,8 @@
 @Desc    : 
 Total Parameters: 27,656,008 (110.6 MB)
 2023/11/13: Start training.
+2023/11/15: Complete training: top-1: 76.55%, top-5: 93.16%.
+DarkNet part: 26 millons parameters (105.5MB).
 '''
 
 import sys, os

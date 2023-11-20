@@ -86,7 +86,6 @@ def cell2pixel(
   return jnp.concatenate([xy, w, h, output[...,4:]], axis=-1)
 
 import numpy as np
-from katacv.utils.coco.build_dataset import show_bbox
 def test_target_show(image, target, mask, anchors):
   result_bboxes = []
   for i in range(3):
@@ -102,18 +101,25 @@ def test_target_show(image, target, mask, anchors):
     result_bboxes = np.stack(result_bboxes)
   print("num bbox:", len(result_bboxes))
   print("mask postive num:", sum([(1-mask[i]).sum() for i in range(3)]))
+  if args.path_dataset.name.lower() == 'coco':
+    from katacv.utils.coco.build_dataset import show_bbox
+  if args.path_dataset.name.lower() == 'pascal':
+    from katacv.utils.pascal.build_dataset import show_bbox
   show_bbox(image, result_bboxes)
 
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
-  from katacv.utils.coco.build_dataset import DatasetBuilder
   args = get_args_and_writer(no_writer=True)
   args.batch_size = 4
-  # print(args.anchors)
+  if args.path_dataset.name.lower() == 'coco':
+    from katacv.utils.coco.build_dataset import DatasetBuilder
+  if args.path_dataset.name.lower() == 'pascal':
+    from katacv.utils.pascal.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
   ds = ds_builder.get_dataset(subset='train')
   bar = tqdm(ds)
   max_relative_w, max_relative_h = 0, 0
+  ws, hs = [], []
   for images, params, num_bboxes in bar:
     images, params, num_bboxes = images.numpy(), params.numpy(), num_bboxes.numpy()
     pred = [jnp.empty((
@@ -131,15 +137,21 @@ if __name__ == '__main__':
       params, num_bboxes, pred, args.anchors
     )
     for i in range(3):
+      obj_target = target[i][target[i][...,4]==1]
+      ws.append(obj_target[:,2])
+      hs.append(obj_target[:,3])
       max_relative_w = max(max_relative_w, jnp.max(target[i][..., 2]))
       max_relative_h = max(max_relative_h, jnp.max(target[i][..., 3]))
       # print(target[i].shape, mask[i].shape)
     bar.set_description(f"max w: {max_relative_w:.2f}, max h: {max_relative_h:.2f}")
+
+    # # Target show
     # for i in range(args.batch_size):
-    #   test_target_show(images[i], [x[i] for x in target], args.anchors)
+    #   test_target_show(images[i], [x[i] for x in target], mask, args.anchors)
     # break
+
+  with open("./logs/target_wh.npy", 'wb') as file:
+    ws = np.concatenate(ws, axis=0)
+    hs = np.concatenate(hs, axis=0)
+    np.save(file, {'ws': ws, 'hs': hs}, allow_pickle=True)
   print(max_relative_w, max_relative_h)
-  #     print(target[i].shape, mask[i].shape)
-  #   for i in range(args.batch_size):
-  #     test_target_show(images[i], [x[i] for x in target], [x[i] for x in mask], args.anchors)
-  #   break

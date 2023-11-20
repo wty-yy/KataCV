@@ -3,19 +3,21 @@ import jax.numpy as jnp
 
 path_darknet_weights = Path("/home/yy/Coding/models/YOLOv4/CSPDarkNet53-0050-lite")
 
-dataset_name = 'COCO'  # or 'PASCAL'
+# dataset_name = 'COCO'  # or 'PASCAL'
+dataset_name = 'PASCAL'  # or 'PASCAL'
 if dataset_name == 'COCO':
-  # path_dataset = Path("/home/wty/Coding/datasets/coco")
-  path_dataset = Path("/home/yy/Coding/datasets/coco")
+  path_dataset = Path("/home/wty/Coding/datasets/coco")
+  # path_dataset = Path("/home/yy/Coding/datasets/coco")
   # path_dataset = Path('/media/yy/Data/dataset/COCO')
   num_classes = 80
   train_ds_size = 118287
   # train_ds_size = 800  # sample test
   use_mosaic4 = False
 elif dataset_name == 'PASCAL':
-  path_dataset = Path("/media/yy/Data/dataset/PASCAL")
+  # path_dataset = Path("/media/yy/Data/dataset/PASCAL")
+  path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
   num_classes = 20
-  train_ds_size = 16551
+  train_ds_size = 16550
   use_mosaic4 = False
 num_data_workers = 8
 

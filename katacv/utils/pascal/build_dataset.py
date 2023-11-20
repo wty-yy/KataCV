@@ -1,26 +1,23 @@
 # -*- coding: utf-8 -*-
 '''
 @File    : build_dataset.py
-@Time    : 2023/11/18 00:53:17
+@Time    : 2023/11/20 15:57:48
 @Author  : wty-yy
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
-BUG: The bboxes file:
-`./bboxes/000000200365.txt` line 3,
-`./bboxes/000000550395.txt` line 15
-have 0 height, we should remove it.
-Had been solved by data YOLODataset._load_data(index)
+Load PASCAL VOC dataset.
 '''
 from katacv.utils.related_pkgs.utility import *
 from katacv.yolov4.parser import YOLOv4Args, get_args_and_writer
 from torch.utils.data import Dataset, DataLoader
-from katacv.utils.coco.constant import MAX_NUM_BBOXES_TRAIN, MAX_NUM_BBOXES_VAL
+from katacv.utils.pascal.constant import MAX_NUM_BBOXES_TRAIN, MAX_NUM_BBOXES_VAL
 import albumentations as A
 import cv2
 import numpy as np
 from PIL import Image
 import warnings
+import pandas as pd
 
 class YOLODataset(Dataset):
   args: YOLOv4Args
@@ -42,9 +39,9 @@ class YOLODataset(Dataset):
     self.max_num_bboxes = (
       MAX_NUM_BBOXES_TRAIN if subset == 'train' else MAX_NUM_BBOXES_VAL
     )
-    path_annotation = self.args.path_dataset.joinpath(f"{subset}_annotation.txt")
-    paths = np.genfromtxt(str(path_annotation), dtype=np.str_)
-    self.path_images, self.path_bboxes = paths[:, 0], paths[:, 1]
+    path_annotation = self.args.path_dataset.joinpath(f"{subset}.csv")
+    paths = pd.read_csv(str(path_annotation))
+    self.path_images, self.path_bboxes = paths.iloc[:, 0], paths.iloc[:, 1]
   
   def __len__(self):
     return len(self.path_images)
@@ -56,9 +53,9 @@ class YOLODataset(Dataset):
     return bboxes
   
   def _load_data(self, index):
-    path_image = self.args.path_dataset.joinpath(self.path_images[index])
+    path_image = self.args.path_dataset.joinpath("images/"+self.path_images[index])
     image = np.array(Image.open(path_image).convert("RGB"))
-    path_bboxes = self.args.path_dataset.joinpath(self.path_bboxes[index])
+    path_bboxes = self.args.path_dataset.joinpath("labels/"+self.path_bboxes[index])
     with warnings.catch_warnings():
       warnings.simplefilter("ignore")
       bboxes = np.loadtxt(path_bboxes)
@@ -66,7 +63,7 @@ class YOLODataset(Dataset):
       # bboxes parameters: (x, y, w, h, class_id)
       bboxes = np.roll(bboxes.reshape(-1, 5), -1, axis=1)
     bboxes = self._check_bbox_need_placeholder(bboxes)
-    bboxes = bboxes[(bboxes[:,2]>0)&(bboxes[:,3]>0)]  # avoid 0 wide for two data in COCO
+    bboxes = bboxes[(bboxes[:,2]>0)&(bboxes[:,3]>0)]  # avoid 0 wide and height
     return image, bboxes
   
   def _mosaic_transform4(self, x0, x1, x2, x3, y0, y1, y2, y3):
@@ -75,7 +72,7 @@ class YOLODataset(Dataset):
         [
           A.Crop(int(x_min), int(y_min), int(x_max), int(y_max))
         ],
-        bbox_params=A.BboxParams(format='coco', min_visibility=0.4)
+        bbox_params=A.BboxParams(format='yolo', min_visibility=0.4)
       )(image=x, bboxes=y)
       x, y = transformed['image'], np.array(transformed['bboxes'])
       y = self._check_bbox_need_placeholder(y)
@@ -133,8 +130,11 @@ class YOLODataset(Dataset):
       image, bboxes = transformed['image'], np.array(transformed['bboxes'])
     # Maybe remove all the bboxes after transform
     bboxes = self._check_bbox_need_placeholder(bboxes)
-    # Convert output to yolo format, xy to the center! 2023/11/20
-    bboxes[:,:2] += bboxes[:,2:4] / 2
+    # Convert output to yolo format with pixel size!
+    bboxes[:,0] *= image.shape[1]
+    bboxes[:,1] *= image.shape[0]
+    bboxes[:,2] *= image.shape[1]
+    bboxes[:,3] *= image.shape[0]
     num_bboxes = np.sum(bboxes[:,4] != -1)
     bboxes = np.concatenate([
       bboxes,
@@ -178,7 +178,7 @@ class DatasetBuilder:
         # A.CenterCrop(*self.args.image_shape[:2]),
         A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
       ],
-      bbox_params=A.BboxParams(format='coco', min_visibility=0.4)
+      bbox_params=A.BboxParams(format='yolo', min_visibility=0.4)
     )
     val_transform = A.Compose(
       [
@@ -190,7 +190,7 @@ class DatasetBuilder:
         ),
         A.Normalize(mean=[0, 0, 0], std=[1, 1, 1]),
       ],
-      bbox_params=A.BboxParams(format='coco', min_visibility=0.4)
+      bbox_params=A.BboxParams(format='yolo', min_visibility=0.4)
     )
     return train_transform if subset == 'train' else val_transform
     # return val_transform if subset == 'val' else train_transform
@@ -210,7 +210,7 @@ class DatasetBuilder:
 
 def show_bbox(image, bboxes):
   from katacv.utils.detection import plot_box_PIL, build_label2colors
-  from katacv.utils.coco.constant import label2name
+  from katacv.utils.pascal.constant import label2name
   image = Image.fromarray((image*255).astype('uint8'))
   if len(bboxes):
     label2color = build_label2colors(bboxes[:,4])
@@ -224,7 +224,7 @@ if __name__ == '__main__':
   args = get_args_and_writer(no_writer=True)
   ds_builder = DatasetBuilder(args)
   args.batch_size = 1
-  ds = ds_builder.get_dataset(subset='train')
+  ds = ds_builder.get_dataset(subset='val')
   print("Dataset size:", len(ds))
   iterator = iter(ds)
   # image, bboxes, num_bboxes = next(iterator)
