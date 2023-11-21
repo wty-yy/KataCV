@@ -14,6 +14,10 @@ class YOLOv4Args(CVArgs):
   warmup_epochs: int
   steps_per_epoch: int
   learning_rate_fn: Callable
+  coef_noobj: float
+  coef_coord: float
+  coef_obj: float
+  coef_class: float
 
 def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv4Args, SummaryWriter] | YOLOv4Args:
   parser = Parser(model_name="YOLOv4", wandb_project_name=cfg.dataset_name)
@@ -46,6 +50,14 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv4Args, S
     help="the epochs for warming up the learning rate")
   parser.add_argument("--momentum", type=float, default=cfg.momentum,
     help="the momentum for SGD optimizer")
+  parser.add_argument("--coef-noobj", type=float, default=cfg.coef_noobj,
+    help="the coef of the no-object loss")
+  parser.add_argument("--coef-coord", type=float, default=cfg.coef_coord,
+    help="the coef of the coordinate loss")
+  parser.add_argument("--coef-obj", type=float, default=cfg.coef_obj,
+    help="the coef of the object loss")
+  parser.add_argument("--coef-class", type=float, default=cfg.coef_class,
+    help="the coef of the classification loss")
   args = parser.get_args(input_args)
   args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
   args.steps_per_epoch = cfg.train_ds_size // args.batch_size

@@ -17,7 +17,9 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
   sort_idxs = jnp.argsort(boxes[:,4])[::-1][:M]  # only consider the first `max_num_box`
   boxes = boxes[sort_idxs]
   ious = iou_multiply(boxes[:,:4], boxes[:,:4], format=iou_format)
-  mask = (boxes[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious < iou_threshold)).astype('bool'))
+  if iou_format == 'diou':
+    ious = 1 - ious
+  mask = (boxes[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
   return boxes, mask
 
 def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
@@ -30,16 +32,19 @@ def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
 
 
 from PIL import Image
-def show_bbox(image, bboxes):
+def show_bbox(image, bboxes, dataset='coco'):
   # print(bboxes)
   from katacv.utils.detection import plot_box_PIL, build_label2colors
-  from katacv.utils.coco.constant import label2name
+  if dataset.lower() == 'coco':
+    from katacv.utils.coco.constant import label2name
+  if dataset.lower() == 'pascal':
+    from katacv.utils.pascal.constant import label2name
   image = Image.fromarray((image*255).astype('uint8'))
   if len(bboxes):
     label2color = build_label2colors(bboxes[:,5])
   for bbox in bboxes:
     label = int(bbox[5])
-    image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='coco')
+    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]}", box_color=label2color[label], format='yolo')
     # print(label, label2name[label], label2color[label])
   image.show()
 

@@ -23,10 +23,35 @@
 所以我们下一步要做的是完成对PASCAL VOC2004/2007数据集的读取工作，可以考虑直接用之前处理好的，将labels从原来的yolo标签转化为COCO格式就能够直接使用COCO的读取方式进行读取了。
 
 - [x] 完成YOLOv4的笔记（上午及下午）
-- [ ] 完成一院比赛的笔记（晚上）
+- [x] 完成一院比赛的笔记（晚上）
 - [x] 完成对target中wh的分布绘制。（上午）
 - [x] 完成PASCAL VOC数据集的读取工作。（下午）
-- [ ] 利用orbax实现对模型权重的保存，从而废弃掉之前的旧保存方法，可以在读取权重前提下，不对模型进行初始化；考虑创建新的文件katacv.utils.weights，在其中对load_weights和SaveWeightsManager用orbax进行重写（下午）
-- [ ] 开始对PASCAL VOC数据集进行训练。（下午）
-- [ ] 晚上记得上人与环境（晚上）
+- [x] 利用orbax实现对模型权重的保存，从而废弃掉之前的旧保存方法，可以在读取权重前提下，不对模型进行初始化；考虑创建新的文件katacv.utils.weights，在其中对load_weights和SaveWeightsManager用orbax进行重写（下午）
+- [x] 开始对PASCAL VOC数据集进行训练。（下午）
+- [x] 晚上记得上人与环境（晚上）
 
+### 2023/11/21
+在PASCAL VOC数据集上训练了100个epochs用时5h，最终val_loss=15，train_loss=10左右，识别效果依然非常差，思考原因：
+1. 首先即使在训练集上，边界框的框选大小均偏大，CIOU损失的问题？
+2. human的识别准确率和置信度非常低，这个可能是因为没有加入ignore样本
+
+修改：
+1. 首先将DIOU和CIOU都写成和IOU正相关的形式，也就是不减去1（代码设计问题），注意计算ciou的loss时候最后做mask，不然会导致loss的显示错误（不影响梯度计算）。
+2. 将目标框的锚框选择从IOU转为CIOU（有小影响）。
+3. 加入ignore_threshold，对于每个预测框，只要和当前的ground truth中的任意一个的IOU > ignore_threthold，
+   则不将其加入到noobj中，也就是不对其Pr(obj)进行减小，这样应该可以避免预测置信度过小的情况。（重大影响）
+
+BUGs:
+1. 计算CIOU中，正则项系数alpha忘记`stop_gradient`了，这可能是导致边界框大小错误的原因。（重大影响）
+
+本次修改后：损失下降速度慢很多，尝试将`base_learning_rate`调整为`1e-3`（原来为`2.5e-4`）
+
+重新加入loss权重系数：
+- 设置`noobj`和`coord`的系数为2，剩余`obj`和`class`的系数为1。
+- 重新设置 `noobj=class=2,obj=1,coord=0.5`
+
+- [x] 完成YOLOv4的进一步修正（上午）
+- [ ] 重新在PASCAL VOC上训练5h（中午）
+- [ ] 设计高效求解mAP方法，也就是求PR曲线（中午，下午实现）
+- [ ] 标记100帧数据集（下午）
+- [ ] 阅读一片论文（下午）

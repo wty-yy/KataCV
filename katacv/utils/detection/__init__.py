@@ -110,7 +110,7 @@ def slice_by_idxs(a: jax.Array, idxs: jax.Array, follow_nums: int):
 
 from functools import partial
 BoxType = jax.Array
-@partial(jax.jit, static_argnums=[2,3,4])
+@partial(jax.jit, static_argnums=[2,3,4,5])
 def iou(
     box1: BoxType, box2: BoxType,
     format: str = 'iou',
@@ -159,7 +159,7 @@ def iou(
     outer_w = jnp.maximum(max1[...,1],max2[...,1]) - jnp.minimum(min1[...,1],min2[...,1])
     center_dist = ((box1[...,:2]-box2[...,:2])**2).sum(-1)
     diagonal_dist = outer_h**2 + outer_w**2
-    result_diou = 1 - result_iou + center_dist / (diagonal_dist + EPS)  # DIOU
+    result_diou = result_iou - center_dist / (diagonal_dist + EPS)  # DIOU
     if format == 'diou':
         ret = result_diou
         if keepdim: ret = ret[...,None]
@@ -169,7 +169,8 @@ def iou(
         jnp.arctan(box1[...,2]/(box1[...,3]+EPS)) -
         jnp.arctan(box2[...,2]/(box2[...,3]+EPS))
     ) ** 2
-    result_ciou = result_diou + v ** 2 / (1 - result_iou + v)
+    alpha = jax.lax.stop_gradient(v / (1 - result_iou + v))  # must use stop gradient !
+    result_ciou = result_diou - alpha * v
     if format == 'ciou': ret = result_ciou
     if keepdim: ret = ret[...,None]
     return ret

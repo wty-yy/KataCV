@@ -56,9 +56,9 @@ def model_step(
 
     def ciou(bbox1, bbox2, mask):  # Complete IOU loss
       ciou_fn = partial(iou, format='ciou', keepdim=True)
-      return (mask * jax.vmap(
+      return (mask * (1 - jax.vmap(
         ciou_fn, in_axes=(0,0), out_axes=0
-      )(bbox1, bbox2)).sum((1,2,3,4)).mean()
+      )(bbox1, bbox2))).sum((1,2,3,4)).mean()
 
     def ce(logits, y_sparse, mask):  # cross-entropy
       y_onehot = jax.nn.one_hot(y_sparse, num_classes=logits.shape[-1])
@@ -77,7 +77,12 @@ def model_step(
     ### class loss ###
     loss_class = ce(pred_cell[..., 5:], target[..., 5], mask_obj)
 
-    loss = loss_noobj + loss_coord + loss_obj + loss_class
+    loss = (
+      args.coef_noobj * loss_noobj +
+      args.coef_coord * loss_coord +
+      args.coef_obj * loss_obj +
+      args.coef_class * loss_class
+    )
     return loss, (loss_noobj, loss_coord, loss_obj, loss_class)
 
   def loss_fn(params):
@@ -172,7 +177,8 @@ if __name__ == '__main__':
         state, (loss, pred_pixel, other_losses) = model_step(state, images, bboxes, num_bboxes, train=True)
         # num_objs.append(int(num_obj))
         logs.update(
-          ['loss_train'], [loss]
+          ['loss_train', 'loss_noobj_train', 'loss_coord_train', 'loss_obj_train', 'loss_class_train'],
+          [loss, *other_losses]
         )
         bar.set_description(f"loss={loss:.4f}, lr={args.learning_rate_fn(state.step):.8f}")
         if global_step % args.write_tensorboard_freq == 0:
@@ -192,17 +198,19 @@ if __name__ == '__main__':
       for images, bboxes, num_bboxes in tqdm(val_ds):
         images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
         global_step += 1
-        _, (loss, pred_pixel, others) = model_step(state, images, bboxes, num_bboxes, train=False)
+        _, (loss, pred_pixel, other_losses) = model_step(state, images, bboxes, num_bboxes, train=False)
         # pred = logits2prob_from_list(pred_pixel)  # (N, -1, 6)
         # pred_bboxes = get_pred_bboxes(pred)
         # ap50, ap75, ap = calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes)
         logs.update(
           [
-            'loss_val',#  'AP50_val', 'AP75_val', 'AP_val',
+            'loss_val', 'loss_noobj_val', 'loss_coord_val', 'loss_obj_val', 'loss_class_val',
+            #  'AP50_val', 'AP75_val', 'AP_val',
             'epoch', 'learning_rate'
           ],
           [
-            loss,#  ap50, ap75, ap,
+            loss, *other_losses,
+            #  ap50, ap75, ap,
             epoch, args.learning_rate_fn(state.step)
           ]
         )

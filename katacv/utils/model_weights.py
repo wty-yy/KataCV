@@ -46,7 +46,8 @@ class SaveWeightsManager:
     if self.max_to_keep and self.num_save > self.max_to_keep:
       delete_id = self.load_id + self.num_save - self.max_to_keep
       path_delete = self.path_cp.joinpath(f"{self.model_name}-{delete_id:04}")
-      path_delete.unlink()
+      if path_delete.exists():
+        path_delete.unlink()
     self.num_save += 1
 
 if __name__ == '__main__':

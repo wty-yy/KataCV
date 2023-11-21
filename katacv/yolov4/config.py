@@ -35,8 +35,13 @@ if dataset_name == 'COCO':
   total_epochs = 300
 if dataset_name == 'PASCAL VOC':
   total_epochs = 100
-base_learning_rate = 2.5e-4
-learning_rate = base_learning_rate * batch_size / 256  # 3e-5
+coef_noobj = 2.0
+coef_coord = 2.0
+coef_obj = 1.0
+coef_class = 1.0
+# base_learning_rate = 2.5e-4
+base_learning_rate = 1e-3
+learning_rate = base_learning_rate * batch_size / 256
 weight_decay = 1e-4
 warmup_epochs = 2
 momentum = 0.9  # if optimizer is SGD
