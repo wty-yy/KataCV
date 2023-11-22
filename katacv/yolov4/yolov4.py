@@ -27,7 +27,8 @@ from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 
 from katacv.utils.imagenet.train import TrainState
 from katacv.utils.detection import iou
-from katacv.yolov4.build_yolo_target import build_target, cell2pixel
+from katacv.yolov4.build_yolo_target_multi import build_target, cell2pixel
+# from katacv.yolov4.build_yolo_target import build_target, cell2pixel
 
 def logits2cell(logits: jax.Array):
   xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 2.0 + 0.5  # xy range: (-0.5, 1.5)
@@ -117,10 +118,7 @@ def model_step(
     ])
     targets, mask_noobjs = jax.vmap(
       build_target, in_axes=(0,0,0,None), out_axes=0
-    )(bboxes, num_bboxes, pred_pixel, args.anchors)
-    # targets, mask_noobjs = jax.vmap(
-    #   build_target, in_axes=(0,0,0,None), out_axes=0
-    # )(bboxes, num_bboxes, pred_pixel, args.anchors)
+    )(bboxes, num_bboxes, logits, args.anchors)
     total_loss = 0
     losses = [0, 0, 0, 0]
     for i in range(3):
