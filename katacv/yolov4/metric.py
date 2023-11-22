@@ -17,8 +17,6 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
   sort_idxs = jnp.argsort(boxes[:,4])[::-1][:M]  # only consider the first `max_num_box`
   boxes = boxes[sort_idxs]
   ious = iou_multiply(boxes[:,:4], boxes[:,:4], format=iou_format)
-  if iou_format == 'diou':
-    ious = 1 - ious
   mask = (boxes[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
   return boxes, mask
 

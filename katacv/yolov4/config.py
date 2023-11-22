@@ -14,8 +14,8 @@ if dataset_name == 'COCO':
   # train_ds_size = 800  # sample test
   use_mosaic4 = False
 if dataset_name == 'PASCAL VOC':
-  path_dataset = Path("/home/yy/Coding/datasets/PASCAL")
-  # path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
+  # path_dataset = Path("/home/yy/Coding/datasets/PASCAL")
+  path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
   num_classes = 20
   train_ds_size = 16550
   use_mosaic4 = False

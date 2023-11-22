@@ -30,8 +30,10 @@ from katacv.utils.detection import iou
 from katacv.yolov4.build_yolo_target import build_target, cell2pixel
 
 def logits2cell(logits: jax.Array):
-  xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 1.1 + 0.5
-  wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2
+  # xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 1.1 + 0.5
+  # wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2
+  xy = jax.nn.sigmoid(logits[...,:2])
+  wh = jnp.exp(logits[...,2:4])
   return jnp.concatenate([xy, wh, logits[...,4:]], axis=-1)
 
 @partial(jax.jit, static_argnames=['train'])
@@ -42,7 +44,7 @@ def model_step(
     num_bboxes: jax.Array,  # (N,)
     train: bool
 ):
-  def single_loss_fn(pred_cell, target, mask_noobj, anchors):
+  def single_loss_fn(logits, target, mask_noobj, anchors):
     """
     pred.shape = (N, 3, H, W, 5 + num_classes)
     target.shape = (N, 3, H, W, 6)
@@ -68,12 +70,11 @@ def model_step(
       y_onehot = jax.nn.one_hot(y_sparse, num_classes=logits.shape[-1])
       return -(mask * (jax.nn.log_softmax(logits) * y_onehot)).sum((1,2,3,4)).mean()
 
-    N = pred_cell.shape[0]
     mask_obj = target[...,4:5] == 1.0
 
     ### no object loss ###
     # print("1:", mask_noobj.shape, mask_obj.shape, pred_cell.shape)
-    loss_noobj = bce(pred_cell[...,4:5], 0.0, mask_noobj)
+    loss_noobj = bce(logits[...,4:5], 0.0, mask_noobj)
     ### coordinate loss ###
     ### CIOU Loss -------------------------------------------------------------------
     # ws, hs = [], []  # BUG FIX: calculate the CIOU, wh need multiply anchors first
@@ -84,14 +85,14 @@ def model_step(
     # h = jnp.concatenate(hs, axis=1)
     # loss_coord = ciou(jnp.concatenate([pred_cell[..., :2], w, h], axis=-1), target[..., :4], mask_obj)
     ### MSE Loss -------------------------------------------------------------------
-    loss_coord = (
-      bce(pred_cell[...,:2], target[...,:2], mask_obj) + 
-      mse(pred_cell[...,2:4], target[...,2:4], mask_obj)
+    loss_coord = (  # BUG FIX: use bce for xy, so don't use sigmoid first.
+      bce(logits[...,:2], target[...,:2], mask_obj) + 
+      mse(logits[...,2:4], target[...,2:4], mask_obj)
     )
     ### object loss ###
-    loss_obj = bce(pred_cell[...,4:5], 1.0, mask_obj)
+    loss_obj = bce(logits[...,4:5], 1.0, mask_obj)
     ### class loss ###
-    loss_class = ce(pred_cell[..., 5:], target[..., 5], mask_obj)
+    loss_class = ce(logits[..., 5:], target[..., 5], mask_obj)
 
     loss = (
       args.coef_noobj * loss_noobj +
@@ -122,7 +123,7 @@ def model_step(
     total_loss = 0
     losses = [0, 0, 0, 0]
     for i in range(3):
-      loss, other_losses = single_loss_fn(pred_cell[i], targets[i], mask_noobjs[i], args.anchors[i])
+      loss, other_losses = single_loss_fn(logits[i], targets[i], mask_noobjs[i], args.anchors[i])
       total_loss += loss
       # total_loss += single_loss_fn(pred_cell[i], targets[i], mask_noobjs[i])
       for j in range(4):

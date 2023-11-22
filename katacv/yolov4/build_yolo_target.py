@@ -42,8 +42,8 @@ def build_target(
     bbox = bbox.at[:2].set(bbox[:2]/scale)
     cell = bbox[:2].astype(jnp.int32)
     bbox = bbox.at[:2].set(bbox[:2] - cell)
-    bbox = bbox.at[2].set(bbox[2] / anchors[j,k,0])  # not divide anchors[j,k,0] for CIOU loss
-    bbox = bbox.at[3].set(bbox[3] / anchors[j,k,1])  # not divide anchors[j,k,1] for CIOU loss
+    bbox = bbox.at[2].set(jnp.log(bbox[2] / anchors[j,k,0] + 1e-6))  # not divide anchors[j,k,0] for CIOU loss
+    bbox = bbox.at[3].set(jnp.log(bbox[3] / anchors[j,k,1] + 1e-6))  # not divide anchors[j,k,1] for CIOU loss
     # print(j, k, bbox, cell, anchors[j,k])
     def update_fn(value):
       target, mask = value
@@ -82,7 +82,7 @@ def cell2pixel(
   xy = cell2pixel_coord(output[...,:2], scale)
   def loop_fn(carry, x):
     output, anchor = x
-    return None, (output[...,2:3] * anchor[0], output[...,3:4] * anchor[1])
+    return None, (jnp.exp(output[...,2:3]) * anchor[0], jnp.exp(output[...,3:4]) * anchor[1])
   _, (w, h) = jax.lax.scan(loop_fn, None, (output, anchors))
   return jnp.concatenate([xy, w, h, output[...,4:]], axis=-1)
 
@@ -111,7 +111,7 @@ def test_target_show(image, target, mask, anchors):
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   args = get_args_and_writer(no_writer=True)
-  args.batch_size = 4
+  args.batch_size = 8
   if args.path_dataset.name.lower() == 'coco':
     from katacv.utils.coco.build_dataset import DatasetBuilder
   if args.path_dataset.name.lower() == 'pascal':

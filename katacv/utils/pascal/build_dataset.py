@@ -161,14 +161,14 @@ class DatasetBuilder:
           border_mode=cv2.BORDER_CONSTANT,
         ),
         A.ColorJitter(brightness=0.4, contrast=0.0, saturation=0.7, hue=0.015, p=0.4),
-        A.OneOf(
-          [
-            A.ShiftScaleRotate(
-              rotate_limit=10, p=0.5, border_mode=cv2.BORDER_CONSTANT
-            ),
-            A.Affine(shear=10, p=0.5, mode=cv2.BORDER_CONSTANT),
-          ], p=0.4
-        ),
+        # A.OneOf(
+        #   [
+        #     A.ShiftScaleRotate(
+        #       rotate_limit=10, p=0.5, border_mode=cv2.BORDER_CONSTANT
+        #     ),
+        #     A.Affine(shear=10, p=0.5, mode=cv2.BORDER_CONSTANT),
+        #   ], p=0.4
+        # ),
         A.HorizontalFlip(p=0.5),
         # A.Blur(p=0.1),
         # A.Posterize(p=0.1),
