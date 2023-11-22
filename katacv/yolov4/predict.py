@@ -24,10 +24,10 @@ def predict(state: TrainState, images: jax.Array):
 
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse--load-id 82".split())
+  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-multi --load-id 100".split())
   args.batch_size = 1
-  # args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
+  args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-multi-checkpoints")
+  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # from katacv.utils.coco.build_dataset import show_bbox
     import numpy as np
     np.set_printoptions(suppress=True)
-    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.4, iou_threshold=0.4)
+    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
     for i in range(len(pred_bboxes)):
       # print(np.round(np.array(pred_bboxes[i]), 4))
       # print("Predict box num:", len(pred_bboxes[i]))

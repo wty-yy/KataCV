@@ -3,19 +3,19 @@ import jax.numpy as jnp
 
 path_darknet_weights = Path("/home/yy/Coding/models/YOLOv4/CSPDarkNet53-0050-lite")
 
-# dataset_name = 'COCO'  # or 'PASCAL'
-dataset_name = 'PASCAL VOC'  # or 'PASCAL'
+dataset_name = 'COCO'  # or 'PASCAL'
+# dataset_name = 'PASCAL VOC'  # or 'PASCAL'
 if dataset_name == 'COCO':
-  path_dataset = Path("/home/wty/Coding/datasets/coco")
-  # path_dataset = Path("/home/yy/Coding/datasets/coco")
+  # path_dataset = Path("/home/wty/Coding/datasets/coco")
+  path_dataset = Path("/home/yy/Coding/datasets/coco")
   # path_dataset = Path('/media/yy/Data/dataset/COCO')
   num_classes = 80
   train_ds_size = 118287
   # train_ds_size = 800  # sample test
   use_mosaic4 = False
 if dataset_name == 'PASCAL VOC':
-  # path_dataset = Path("/home/yy/Coding/datasets/PASCAL")
-  path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
+  path_dataset = Path("/home/yy/Coding/datasets/PASCAL")
+  # path_dataset = Path("/home/wty/Coding/datasets/PASCAL")
   num_classes = 20
   train_ds_size = 16550
   use_mosaic4 = False
@@ -30,10 +30,11 @@ anchors = jnp.array([  # Specify pixels, shape: (3, 3, 2)
 ])
 
 ### Training ###
-batch_size = 32
 if dataset_name == 'COCO':
+  batch_size = 32
   total_epochs = 300
 if dataset_name == 'PASCAL VOC':
+  batch_size = 32
   total_epochs = 100
 coef_noobj = 2.0
 coef_coord = 2.0

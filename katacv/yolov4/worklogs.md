@@ -75,5 +75,5 @@ BUGs:
 所以，我重新设计了build_yolo_target_multi，对于一个目标框，所有anchors的长宽比，
 在(1/4,4)之间的都可视为target，为了便于求coord_loss，重新使用CIOU损失。
 
-- [ ] 完成坐标回归的损失形式训练。（下午）
+- [ ] 完成坐标回归的损失形式训练，一个小错误导致训练报废，先把multi_target实现了。（下午）
 - [ ] 使用multi_target重新进行训练。（下午）

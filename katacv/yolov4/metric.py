@@ -42,7 +42,7 @@ def show_bbox(image, bboxes, dataset='coco'):
     label2color = build_label2colors(bboxes[:,5])
   for bbox in bboxes:
     label = int(bbox[5])
-    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]}", box_color=label2color[label], format='yolo')
+    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.3f}", box_color=label2color[label], format='yolo')
     # print(label, label2name[label], label2color[label])
   image.show()
 
