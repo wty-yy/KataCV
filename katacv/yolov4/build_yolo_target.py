@@ -82,16 +82,32 @@ def cell2pixel(
   xy = cell2pixel_coord(output[...,:2], scale)
   def loop_fn(carry, x):
     output, anchor = x
-    return None, (jnp.exp(output[...,2:3]) * anchor[0], jnp.exp(output[...,3:4]) * anchor[1])
+    return None, (output[...,2:3] * anchor[0], output[...,3:4] * anchor[1])
   _, (w, h) = jax.lax.scan(loop_fn, None, (output, anchors))
   return jnp.concatenate([xy, w, h, output[...,4:]], axis=-1)
+
+from PIL import Image, ImageDraw
+def plot_rectangle_PIL(image, xyxy):
+  if type(image) != Image.Image:
+    image = Image.fromarray((image*255).astype('uint8'))
+  draw = ImageDraw.Draw(image)
+  draw.rectangle(xyxy, (255,255,255))
+  return image
 
 import numpy as np
 def test_target_show(image, target, mask, anchors):
   result_bboxes = []
   for i in range(3):
+    target[i] = target[i].at[...,2:4].set(jnp.exp(target[i][...,2:4]))
+  for i in range(3):
     # org_target = target[i]
     cvt_target = cell2pixel(target[i], scale=2**(i+3), anchors=anchors[i])
+    idxs = np.transpose((1-mask[i]).nonzero())
+    print(f"Scale {i} target index:", idxs)
+    scale = 2**(i+3)
+    for idx in idxs:
+      x1 = idx[2] * scale; y1 = idx[1] * scale
+      image = plot_rectangle_PIL(image, (x1, y1, x1 + scale, y1 + scale))
     for j in range(3):
       # print(f"Anchor {j} params in scale {2**(i+3)} (org target):", org_target[j][(org_target[j,...,4]==1) & (org_target[j,...,5+58]==1)])
       # print(f"Anchor {j} params in scale {2**(i+3)} (cvt target):", cvt_target[j][(cvt_target[j,...,4]==1) & (cvt_target[j,...,5+0]==1)])
@@ -106,18 +122,18 @@ def test_target_show(image, target, mask, anchors):
     from katacv.utils.coco.build_dataset import show_bbox
   if args.path_dataset.name.lower() == 'pascal':
     from katacv.utils.pascal.build_dataset import show_bbox
-  show_bbox(image, result_bboxes)
+  show_bbox(image, result_bboxes, draw_center_point=True)
 
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   args = get_args_and_writer(no_writer=True)
-  args.batch_size = 8
+  args.batch_size = 2
   if args.path_dataset.name.lower() == 'coco':
     from katacv.utils.coco.build_dataset import DatasetBuilder
   if args.path_dataset.name.lower() == 'pascal':
     from katacv.utils.pascal.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
-  ds = ds_builder.get_dataset(subset='train')
+  ds = ds_builder.get_dataset(subset='8examples')
   bar = tqdm(ds)
   max_relative_w, max_relative_h = 0, 0
   ws, hs = [], []
@@ -148,7 +164,7 @@ if __name__ == '__main__':
 
     # Target show
     for i in range(args.batch_size):
-      test_target_show(images[i], [x[i] for x in target], mask, args.anchors)
+      test_target_show(images[i], [x[i] for x in target], [x[i] for x in mask], args.anchors)
     break
 
   # with open("./logs/target_wh.npy", 'wb') as file:

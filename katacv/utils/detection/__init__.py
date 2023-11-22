@@ -33,7 +33,8 @@ def plot_box_PIL(
         image:Image.Image, box_params: tuple | np.ndarray,
         text="", fontsize=14, box_color='red',
         fontpath="../fonts/Consolas.ttf",
-        format='yolo'
+        format='yolo',
+        draw_center_point=False,
     ):
     """
     (PIL) Plot the bounding box with `box_params` in `image`.
@@ -82,6 +83,8 @@ def plot_box_PIL(
     y_text = y_min - h_text if y_min > h_text else y_min
     draw.rounded_rectangle([x_text, y_text, x_text+w_text, y_text+h_text], radius=1.5, fill=box_color)
     draw.text((x_text, y_text), text, fill=font_color, font=font)
+    if draw_center_point:
+        draw.rounded_rectangle([x_min+w/2-2,y_min+h/2-2,x_min+w/2+2,y_min+h/2+2], radius=1.5, fill=(255,0,0))
     return image
 
 def plot_cells(ax: plt.Axes, image_shape: tuple[int], S: int):

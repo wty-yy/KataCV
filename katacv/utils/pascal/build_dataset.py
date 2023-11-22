@@ -208,15 +208,16 @@ class DatasetBuilder:
     )
     return ds
 
-def show_bbox(image, bboxes):
+def show_bbox(image, bboxes, draw_center_point=False):
   from katacv.utils.detection import plot_box_PIL, build_label2colors
   from katacv.utils.pascal.constant import label2name
-  image = Image.fromarray((image*255).astype('uint8'))
+  if type(image) != Image.Image:
+    image = Image.fromarray((image*255).astype('uint8'))
   if len(bboxes):
     label2color = build_label2colors(bboxes[:,4])
   for bbox in bboxes:
     label = int(bbox[4])
-    image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='yolo')
+    image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='yolo', draw_center_point=draw_center_point)
     print(label, label2name[label], label2color[label])
   image.show()
 
