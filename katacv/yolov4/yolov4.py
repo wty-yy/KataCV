@@ -42,11 +42,12 @@ def model_step(
     num_bboxes: jax.Array,  # (N,)
     train: bool
 ):
-  def single_loss_fn(pred_cell, target, mask_noobj):
+  def single_loss_fn(pred_cell, target, mask_noobj, anchors):
     """
     pred.shape = (N, 3, H, W, 5 + num_classes)
     target.shape = (N, 3, H, W, 6)
     mask_noobj.shape = (N, 3, H, W, 1)
+    anchors.shape = (3, 2)
     """
     def bce(logits, y, mask):  # binary cross-entropy
       return -(mask * (
@@ -59,6 +60,9 @@ def model_step(
       return (mask * (1 - jax.vmap(
         ciou_fn, in_axes=(0,0), out_axes=0
       )(bbox1, bbox2))).sum((1,2,3,4)).mean()
+    
+    def mse(logits, y, mask):
+      return (mask * 0.5 * (logits - y) ** 2).sum((1,2,3,4)).mean()
 
     def ce(logits, y_sparse, mask):  # cross-entropy
       y_onehot = jax.nn.one_hot(y_sparse, num_classes=logits.shape[-1])
@@ -71,7 +75,19 @@ def model_step(
     # print("1:", mask_noobj.shape, mask_obj.shape, pred_cell.shape)
     loss_noobj = bce(pred_cell[...,4:5], 0.0, mask_noobj)
     ### coordinate loss ###
-    loss_coord = ciou(pred_cell[..., :4], target[..., :4], mask_obj)
+    ### CIOU Loss -------------------------------------------------------------------
+    # ws, hs = [], []  # BUG FIX: calculate the CIOU, wh need multiply anchors first
+    # for i in range(3):
+    #   ws.append(pred_cell[:,i:i+1,:,:,2:3] * anchors[i,0])
+    #   hs.append(pred_cell[:,i:i+1,:,:,3:4] * anchors[i,1])
+    # w = jnp.concatenate(ws, axis=1)
+    # h = jnp.concatenate(hs, axis=1)
+    # loss_coord = ciou(jnp.concatenate([pred_cell[..., :2], w, h], axis=-1), target[..., :4], mask_obj)
+    ### MSE Loss -------------------------------------------------------------------
+    loss_coord = (
+      bce(pred_cell[...,:2], target[...,:2], mask_obj) + 
+      mse(pred_cell[...,2:4], target[...,2:4], mask_obj)
+    )
     ### object loss ###
     loss_obj = bce(pred_cell[...,4:5], 1.0, mask_obj)
     ### class loss ###
@@ -106,7 +122,7 @@ def model_step(
     total_loss = 0
     losses = [0, 0, 0, 0]
     for i in range(3):
-      loss, other_losses = single_loss_fn(pred_cell[i], targets[i], mask_noobjs[i])
+      loss, other_losses = single_loss_fn(pred_cell[i], targets[i], mask_noobjs[i], args.anchors[i])
       total_loss += loss
       # total_loss += single_loss_fn(pred_cell[i], targets[i], mask_noobjs[i])
       for j in range(4):

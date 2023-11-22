@@ -43,15 +43,23 @@
 
 BUGs:
 1. 计算CIOU中，正则项系数alpha忘记`stop_gradient`了，这可能是导致边界框大小错误的原因。（重大影响）
+2. 计算CIOU时候，必须对wh乘以anchors之后再进行计算，因为wh的比例不同，且也会对DIOU中c^2产生影响。（重大影响，边界框位置基本都不准确）
 
 本次修改后：损失下降速度慢很多，尝试将`base_learning_rate`调整为`1e-3`（原来为`2.5e-4`）
 
 重新加入loss权重系数：
 - 设置`noobj`和`coord`的系数为2，剩余`obj`和`class`的系数为1。
-- 重新设置 `noobj=class=2,obj=1,coord=0.5`
+- 重新设置 `obj=class=2,noobj=1,coord=0.5`
+
+尝试换成原来的写法，用bce预测xy，用mse预测wh，需要修改以下三个部分
+- `single_loss_fn`中的`loss_coord`改为bce+mse
+- `build_target`中对wh除以`anchors[j,k,0/1]`
+- 减小学习率`base_learning_rate=2.5e-4`
+- 重新设置损失系数`noobj=coord=2.0,obj=class=1.0`
+
 
 - [x] 完成YOLOv4的进一步修正（上午）
-- [ ] 重新在PASCAL VOC上训练5h（中午）
+- [x] 重新在PASCAL VOC上训练5h（中午）
 - [ ] 设计高效求解mAP方法，也就是求PR曲线（中午，下午实现）
 - [ ] 标记100帧数据集（下午）
 - [ ] 阅读一片论文（下午）

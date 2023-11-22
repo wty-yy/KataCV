@@ -42,8 +42,8 @@ def build_target(
     bbox = bbox.at[:2].set(bbox[:2]/scale)
     cell = bbox[:2].astype(jnp.int32)
     bbox = bbox.at[:2].set(bbox[:2] - cell)
-    bbox = bbox.at[2].set(bbox[2] / anchors[j,k,0])
-    bbox = bbox.at[3].set(bbox[3] / anchors[j,k,1])
+    bbox = bbox.at[2].set(bbox[2] / anchors[j,k,0])  # not divide anchors[j,k,0] for CIOU loss
+    bbox = bbox.at[3].set(bbox[3] / anchors[j,k,1])  # not divide anchors[j,k,1] for CIOU loss
     # print(j, k, bbox, cell, anchors[j,k])
     def update_fn(value):
       target, mask = value
