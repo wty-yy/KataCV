@@ -69,3 +69,11 @@ BUGs:
 昨天忘记使用logits的xy进行预测了，修正后今天中午再重试。
 
 目前问题还是很大，模型基本无法找到小目标框（低置信度），不清楚原因。
+经过和之前写过的YOLOv3，Scaled-YOLOv4，YOLOv5的target进行对比，
+发现如果每个target_box都只取最大的IOU作为yolo_target，无法充分利用识别框的数目，
+而且会错误地导致obj_loss的下降（因为有的位置明显能够检测到，但是没有作为识别的target）
+所以，我重新设计了build_yolo_target_multi，对于一个目标框，所有anchors的长宽比，
+在(1/4,4)之间的都可视为target，为了便于求coord_loss，重新使用CIOU损失。
+
+- [ ] 完成坐标回归的损失形式训练。（下午）
+- [ ] 使用multi_target重新进行训练。（下午）

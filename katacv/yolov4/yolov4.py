@@ -30,10 +30,10 @@ from katacv.utils.detection import iou
 from katacv.yolov4.build_yolo_target import build_target, cell2pixel
 
 def logits2cell(logits: jax.Array):
-  # xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 1.1 + 0.5
-  # wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2
-  xy = jax.nn.sigmoid(logits[...,:2])
-  wh = jnp.exp(logits[...,2:4])
+  xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 2.0 + 0.5  # xy range: (-0.5, 1.5)
+  wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2  # wh range: (0, 4)
+  # xy = jax.nn.sigmoid(logits[...,:2])
+  # wh = jnp.exp(logits[...,2:4])
   return jnp.concatenate([xy, wh, logits[...,4:]], axis=-1)
 
 @partial(jax.jit, static_argnames=['train'])
@@ -77,18 +77,19 @@ def model_step(
     loss_noobj = bce(logits[...,4:5], 0.0, mask_noobj)
     ### coordinate loss ###
     ### CIOU Loss -------------------------------------------------------------------
-    # ws, hs = [], []  # BUG FIX: calculate the CIOU, wh need multiply anchors first
-    # for i in range(3):
-    #   ws.append(pred_cell[:,i:i+1,:,:,2:3] * anchors[i,0])
-    #   hs.append(pred_cell[:,i:i+1,:,:,3:4] * anchors[i,1])
-    # w = jnp.concatenate(ws, axis=1)
-    # h = jnp.concatenate(hs, axis=1)
-    # loss_coord = ciou(jnp.concatenate([pred_cell[..., :2], w, h], axis=-1), target[..., :4], mask_obj)
+    ws, hs = [], []  # BUG FIX: calculate the CIOU, wh need multiply anchors first
+    pred_cell = logits2cell(logits)
+    for i in range(3):
+      ws.append(pred_cell[:,i:i+1,:,:,2:3] * anchors[i,0])
+      hs.append(pred_cell[:,i:i+1,:,:,3:4] * anchors[i,1])
+    w = jnp.concatenate(ws, axis=1)
+    h = jnp.concatenate(hs, axis=1)
+    loss_coord = ciou(jnp.concatenate([pred_cell[..., :2], w, h], axis=-1), target[..., :4], mask_obj)
     ### MSE Loss -------------------------------------------------------------------
-    loss_coord = (  # BUG FIX: use bce for xy, so don't use sigmoid first.
-      bce(logits[...,:2], target[...,:2], mask_obj) + 
-      mse(logits[...,2:4], target[...,2:4], mask_obj)
-    )
+    # loss_coord = (  # BUG FIX: use bce for xy, so don't use sigmoid first.
+    #   bce(logits[...,:2], target[...,:2], mask_obj) + 
+    #   mse(logits[...,2:4], target[...,2:4], mask_obj)
+    # )
     ### object loss ###
     loss_obj = bce(logits[...,4:5], 1.0, mask_obj)
     ### class loss ###

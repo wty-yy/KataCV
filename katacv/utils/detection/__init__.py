@@ -121,7 +121,7 @@ def iou(
     keepdim: bool = False, EPS: float = 1e-6
 ):
     """
-    (JAX) Calculate the intersection over union for box1[i] and box2[i].
+    (JAX) Calculate the intersection over union for box1[i] and box2[i] (YOLO format).
     @params::box1, box2: let `shape` be the shape of box1 and box2.
         if shape[-1] == 4, then the last dim is `(x,y,w,h)`.
         if shape[-1] == 2, then the last dim is `(w,h)`.

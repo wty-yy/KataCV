@@ -9,7 +9,8 @@ def build_target(
     # Shape: [(3, Hi, Wi, 4) for i in range(3)]
     pred_pixel: List[jax.Array],
     anchors: jax.Array,  # (3, 3, 2)
-    iou_ignore: float = 0.5
+    iou_ignore: float = 0.5,
+    anchors_threshold: float = 4.0
   ) -> Tuple[List[jax.Array], List[jax.Array]]:
   """
   Return: Tuple -> (target, mask_noobj)
@@ -33,33 +34,25 @@ def build_target(
       # label don't need correct, because the confidence is Pr(obj)
       # the last classification predict is Pr(class=C|obj)
       mask[j] = mask[j] | (iou_pred > iou_ignore)
-    # Update best anchor target
-    iou_anchors = iou(bbox[2:4], anchors.reshape(-1, 2), format='ciou')  # use ciou, add w/h ratio regular
-    best_anchor = jnp.argmax(iou_anchors)
-    j = (best_anchor / 3).astype(jnp.int32)
-    k = best_anchor - 3 * j
-    scale = 2 ** (j+3)
-    bbox = bbox.at[:2].set(bbox[:2]/scale)
-    cell = bbox[:2].astype(jnp.int32)
-    bbox = bbox.at[:2].set(bbox[:2] - cell)
-    bbox = bbox.at[2].set(jnp.log(bbox[2] / anchors[j,k,0] + 1e-6))  # not divide anchors[j,k,0] for CIOU loss
-    bbox = bbox.at[3].set(jnp.log(bbox[3] / anchors[j,k,1] + 1e-6))  # not divide anchors[j,k,1] for CIOU loss
-    # print(j, k, bbox, cell, anchors[j,k])
+    # Update all anchor target which width and hegiht ratio between (1/4, 4)
+    rate = bbox[None,None,2:4] / anchors  # wh ratio
+    flag = jnp.maximum(rate, 1.0 / rate).max(-1) < anchors_threshold
+
     def update_fn(value):
-      target, mask = value
-      target = target.at[k,cell[1],cell[0]].set(jnp.r_[bbox, 1, label])
-      # target = target.at[k,cell[1],cell[0],5+label].set(1)
+      target, mask, k, b, cell = value
+      target = target.at[k,cell[1],cell[0]].set(jnp.r_[b, 1, label])
       mask = mask.at[k,cell[1],cell[0]].set(True)
       return target, mask
-    for o in range(3):
-      target[o], mask[o] = jax.lax.cond(
-        o==j, update_fn, lambda x: x, (target[o], mask[o])
-      )
+
+    for j in range(3):
+      scale = 2 ** (j+3)
+      cell = (bbox[:2]/scale).astype(jnp.int32)
+      b = jnp.concatenate([bbox[:2]/scale - cell.astype(jnp.float32), bbox[2:4]])
+      for k in range(3):
+        target[j], mask[j] = jax.lax.cond(
+          flag[j,k], update_fn, lambda x: x[:2], (target[j], mask[j], k, b, cell)
+        )
     return target, mask
-    # target[j] = target[j].at[k,cell[1],cell[0],:5].set(jnp.r_[bbox, 1])
-    # target[j] = target[j].at[k,cell[1],cell[0],5+label].set(1)
-    # mask[j] = mask[j].at[k,cell[1],cell[0]].set(True)
-    # print(target[j][k,cell[1],cell[0]])
   target, mask = jax.lax.fori_loop(0, num_bboxes, loop_bbox_i_fn, (target, mask))
   for i in range(3):
     mask[i] = (mask[i] ^ True)[..., None]
@@ -87,28 +80,32 @@ def cell2pixel(
   return jnp.concatenate([xy, w, h, output[...,4:]], axis=-1)
 
 from PIL import Image, ImageDraw
-def plot_rectangle_PIL(image, xyxy):
+def plot_rectangle_PIL(image, xyxy, fill=(255,255,255)):
   if type(image) != Image.Image:
     image = Image.fromarray((image*255).astype('uint8'))
   draw = ImageDraw.Draw(image)
-  draw.rectangle(xyxy, (255,255,255))
+  draw.rectangle(xyxy, fill)
   return image
 
 import numpy as np
 def test_target_show(image, target, mask, anchors):
   result_bboxes = []
-  for i in range(3):
-    target[i] = target[i].at[...,2:4].set(jnp.exp(target[i][...,2:4]))
-  for i in range(3):
+  # for i in range(3):
+  #   target[i] = target[i].at[...,2:4].set(jnp.exp(target[i][...,2:4]))
+  fill_colors = [(255,255,255), (0,255,0), (0,0,255)]
+  for i in range(2,-1,-1):
     # org_target = target[i]
-    cvt_target = cell2pixel(target[i], scale=2**(i+3), anchors=anchors[i])
-    idxs = np.transpose((1-mask[i]).nonzero())
-    print(f"Scale {i} target index:", idxs)
+    cvt_target = cell2pixel(target[i], scale=2**(i+3), anchors=jnp.ones_like(anchors[i]))
     scale = 2**(i+3)
-    for idx in idxs:
-      x1 = idx[2] * scale; y1 = idx[1] * scale
-      image = plot_rectangle_PIL(image, (x1, y1, x1 + scale, y1 + scale))
     for j in range(3):
+
+      idxs = np.transpose((1-mask[i][j]).nonzero())
+      for idx in idxs:
+        x1 = idx[1] * scale; y1 = idx[0] * scale
+        image = plot_rectangle_PIL(image, (x1, y1, x1 + scale, y1 + scale), fill_colors[i])
+      print(f"Scale {i}, anchor {j}, target index:", idxs)
+      print("Anchor:", anchors[i,j])
+
       # print(f"Anchor {j} params in scale {2**(i+3)} (org target):", org_target[j][(org_target[j,...,4]==1) & (org_target[j,...,5+58]==1)])
       # print(f"Anchor {j} params in scale {2**(i+3)} (cvt target):", cvt_target[j][(cvt_target[j,...,4]==1) & (cvt_target[j,...,5+0]==1)])
       params = cvt_target[j][cvt_target[j,...,4]==1]  # (N,5+num_classes)
@@ -127,13 +124,13 @@ def test_target_show(image, target, mask, anchors):
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   args = get_args_and_writer(no_writer=True)
-  args.batch_size = 3
+  args.batch_size = 1
   if args.path_dataset.name.lower() == 'coco':
     from katacv.utils.coco.build_dataset import DatasetBuilder
   if args.path_dataset.name.lower() == 'pascal':
     from katacv.utils.pascal.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
-  ds = ds_builder.get_dataset(subset='train')
+  ds = ds_builder.get_dataset(subset='val')
   bar = tqdm(ds)
   max_relative_w, max_relative_h = 0, 0
   ws, hs = [], []
@@ -148,7 +145,7 @@ if __name__ == '__main__':
     ]
     # pred[2] = pred[2].at[0,0,8,5].set(jnp.array([140,260,165,130], dtype=jnp.float32))
     # print(params.shape, num_bboxes.shape, pred[0].shape)
-    # print("total box num:", num_bboxes[0])
+    print("total box num:", num_bboxes[0])
     print(params[0][:num_bboxes[0]])
     # target, mask = build_target(params[0], num_bboxes[0], [x[0] for x in pred], args.anchors)
     target, mask = jax.vmap(build_target, in_axes=(0,0,0,None), out_axes=0)(

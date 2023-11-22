@@ -218,7 +218,7 @@ def show_bbox(image, bboxes, draw_center_point=False):
   for bbox in bboxes:
     label = int(bbox[4])
     image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='yolo', draw_center_point=draw_center_point)
-    print(label, label2name[label], label2color[label])
+    # print(label, label2name[label], label2color[label])
   image.show()
 
 if __name__ == '__main__':
