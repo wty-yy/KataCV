@@ -69,43 +69,45 @@ class YOLODataset(Dataset):
     bboxes = bboxes[(bboxes[:,2]>0)&(bboxes[:,3]>0)]  # avoid 0 wide for two data in COCO
     return image, bboxes
   
-  def _mosaic_transform4(self, x0, x1, x2, x3, y0, y1, y2, y3):
-    def crop(x, y, x_min, y_min, x_max, y_max):
+  def _mosaic_transform4(self, x0, x1, x2, x3, y0, y1, y2, y3, center_rate=0.2):
+    def crop(x, y, h, w):
       transformed = A.Compose(
         [
-          A.Crop(int(x_min), int(y_min), int(x_max), int(y_max))
+          A.RandomCrop(h, w),
         ],
         bbox_params=A.BboxParams(format='coco', min_visibility=0.4)
       )(image=x, bboxes=y)
       x, y = transformed['image'], np.array(transformed['bboxes'])
       y = self._check_bbox_need_placeholder(y)
       return x, y
-    shape = np.array([[x0.shape, x1.shape], [x2.shape, x3.shape]])
-    minh = np.min(shape[:,:,0], axis=1)
-    minw = np.min(shape[:,:,1], axis=0)
+    H, W = self.args.image_shape[:2]
+    # x = np.zeros(self.args.image_shape, dtype=np.float32)
+    center_h = int(np.random.uniform(-H*center_rate, H*center_rate) + H / 2.0)
+    center_w = int(np.random.uniform(-W*center_rate, W*center_rate) + W / 2.0)
+    # center = np.stack([center_h, center_w])
     x0, y0 = crop(
       x0, y0,
-      x0.shape[1]-minw[0], x0.shape[0]-minh[0],
-      x0.shape[1], x0.shape[0]
+      center_h, center_w
     )
     x1, y1 = crop(
       x1, y1,
-      0, x1.shape[0]-minh[0], minw[1], x1.shape[0]
+      center_h, W-center_w
     )
     x2, y2 = crop(
       x2, y2,
-      x2.shape[1]-minw[0], 0, x2.shape[1], minh[1]
+      H-center_h, center_w
     )
     x3, y3 = crop(
       x3, y3,
-      0, 0, minw[1], minh[1]
+      H-center_h, W-center_w
     )
-    # x0 = x0[-minh[0]:, -minw[0]:, :]
-    # x1 = x1[-minh[0]:, :minw[1], :]
-    # x2 = x2[:minh[1], -minw[0]:, :]
-    # x3 = x3[:minh[1], :minw[1], :]
-    y1[:,0] += minw[0]; y3[:,0] += minw[0]
-    y2[:,1] += minh[0]; y3[:,1] += minh[0]
+    y1[:,0] += center_w; y3[:,0] += center_w
+    y2[:,1] += center_h; y3[:,1] += center_h
+    # x[:center_h, :center_w, :] = x0
+    # x[:center_h, center_w:, :] = x1
+    # x[center_h:, :center_w, :] = x2
+    # x[center_h:, center_w:, :] = x3
+    print(x0.shape, x1.shape, x2.shape, x3.shape)
     x = np.concatenate([
       np.concatenate([x0,x1], axis=1), np.concatenate([x2,x3], axis=1)
     ], axis=0)
@@ -114,25 +116,31 @@ class YOLODataset(Dataset):
     y = self._check_bbox_need_placeholder(y)
     return x, y
   
-  def __getitem__(self, index):
-    image, bboxes = self._load_data(index)
-    if self.use_mosaic4:
-      xs, ys = [image], [bboxes]
-      for i in np.random.randint(0, len(self.path_images), size=3):
-        x, y = self._load_data(i)
-        xs.append(x); ys.append(y)
-      image, bboxes = self._mosaic_transform4(*xs, *ys)
-      # print(image.shape, bboxes.shape)
-      # print(bboxes)
-    if self.transform:
+  def _transform(self, image, bboxes):
       try:
         transformed = self.transform(image=image, bboxes=bboxes)
       except Exception as e:
         print("Error Id:", self.path_bboxes[index])
         raise e
       image, bboxes = transformed['image'], np.array(transformed['bboxes'])
+      return image, bboxes
+  
+  def __getitem__(self, index):
+    image, bboxes = self._load_data(index)
     # Maybe remove all the bboxes after transform
+    if self.transform:
+      image, bboxes = self._transform(image, bboxes)
     bboxes = self._check_bbox_need_placeholder(bboxes)
+
+    if self.use_mosaic4:
+      xs, ys = [image], [bboxes]
+      for i in np.random.randint(0, len(self.path_images), size=3):
+        x, y = self._transform(*self._load_data(i))
+        xs.append(x); ys.append(y)
+      image, bboxes = self._mosaic_transform4(*xs, *ys)
+      # print(image.shape, bboxes.shape)
+      # print(bboxes)
+
     # Convert output to yolo format, xy to the center! 2023/11/20
     bboxes[:,:2] += bboxes[:,2:4] / 2
     num_bboxes = np.sum(bboxes[:,4] != -1)
@@ -151,15 +159,20 @@ class DatasetBuilder:
     self.args = args
   
   def get_transform(self, subset):
-    scale = 1.1
+    scale = 1.4
     train_transform = A.Compose(
       [
-        A.LongestMaxSize(max_size=int(max(self.args.image_shape[:2])*scale)),
-        A.PadIfNeeded(
-          min_height=int(self.args.image_shape[0]*scale),
-          min_width=int(self.args.image_shape[1]*scale),
-          border_mode=cv2.BORDER_CONSTANT,
+        A.RandomResizedCrop(
+          height=int(self.args.image_shape[1]),
+          width=int(self.args.image_shape[0]),
+          scale=(0.8, 1),
         ),
+        # A.LongestMaxSize(max_size=int(max(self.args.image_shape[:2])*scale)),
+        # A.PadIfNeeded(
+        #   min_height=int(self.args.image_shape[0]*scale),
+        #   min_width=int(self.args.image_shape[1]*scale),
+        #   border_mode=cv2.BORDER_CONSTANT,
+        # ),
         A.ColorJitter(brightness=0.4, contrast=0.0, saturation=0.7, hue=0.015, p=0.4),
         # A.OneOf(
         #   [

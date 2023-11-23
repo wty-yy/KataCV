@@ -118,7 +118,7 @@ def model_step(
     ])
     targets, mask_noobjs = jax.vmap(
       build_target, in_axes=(0,0,0,None), out_axes=0
-    )(bboxes, num_bboxes, logits, args.anchors)
+    )(bboxes, num_bboxes, pred_pixel, args.anchors)
     total_loss = 0
     losses = [0, 0, 0, 0]
     for i in range(3):

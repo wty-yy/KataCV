@@ -25,14 +25,14 @@ def build_target(
   def loop_bbox_i_fn(i, value):
     target, mask = value
     bbox, label = bboxes[i], labels[i]
-    # Update ignore examples
-    for j in range(3):
-      iou_pred = iou(
-        bbox, pred_pixel[j][...,:4].reshape(-1,4)
-      ).reshape(mask[j].shape)
-      # label don't need correct, because the confidence is Pr(obj)
-      # the last classification predict is Pr(class=C|obj)
-      mask[j] = mask[j] | (iou_pred > iou_ignore)
+    # Update ignore examples (Don't need)
+    # for j in range(3):
+    #   iou_pred = iou(
+    #     bbox, pred_pixel[j][...,:4].reshape(-1,4)
+    #   ).reshape(mask[j].shape)
+    #   # label don't need correct, because the confidence is Pr(obj)
+    #   # the last classification predict is Pr(class=C|obj)
+    #   mask[j] = mask[j] | (iou_pred > iou_ignore)
     # Update best anchor target
     iou_anchors = iou(bbox[2:4], anchors.reshape(-1, 2), format='ciou')  # use ciou, add w/h ratio regular
     best_anchor = jnp.argmax(iou_anchors)

@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # from katacv.utils.coco.build_dataset import show_bbox
     import numpy as np
     np.set_printoptions(suppress=True)
-    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.05, iou_threshold=0.4)
+    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
     for i in range(len(pred_bboxes)):
       # print(np.round(np.array(pred_bboxes[i]), 4))
       # print("Predict box num:", len(pred_bboxes[i]))
