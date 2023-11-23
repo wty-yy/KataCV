@@ -24,10 +24,11 @@ def predict(state: TrainState, images: jax.Array):
 
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse--load-id 82".split())
+  # args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse --load-id 82".split())
+  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 16".split())
   args.batch_size = 1
-  # args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
+  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
@@ -35,8 +36,8 @@ if __name__ == '__main__':
   from katacv.utils.model_weights import load_weights
   state = load_weights(state, args)
 
-  # from katacv.utils.coco.build_dataset import DatasetBuilder
-  from katacv.utils.pascal.build_dataset import DatasetBuilder
+  from katacv.utils.coco.build_dataset import DatasetBuilder
+  # from katacv.utils.pascal.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
   train_ds = ds_builder.get_dataset(subset='train')
   val_ds = ds_builder.get_dataset(subset='val')
@@ -59,7 +60,7 @@ if __name__ == '__main__':
     # from katacv.utils.coco.build_dataset import show_bbox
     import numpy as np
     np.set_printoptions(suppress=True)
-    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.4, iou_threshold=0.4)
+    pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.05, iou_threshold=0.4)
     for i in range(len(pred_bboxes)):
       # print(np.round(np.array(pred_bboxes[i]), 4))
       # print("Predict box num:", len(pred_bboxes[i]))
