@@ -173,7 +173,8 @@ def iou(
         jnp.arctan(box2[...,2]/(box2[...,3]+EPS))
     ) ** 2
     alpha = jax.lax.stop_gradient(v / (1 - result_iou + v))  # must use stop gradient !
-    result_ciou = result_diou - alpha * v
+    S = jax.lax.stop_gradient(result_iou >= 0.5)  # https://arxiv.org/pdf/2005.03572.pdf
+    result_ciou = result_diou - S * alpha * v
     if format == 'ciou': ret = result_ciou
     if keepdim: ret = ret[...,None]
     return ret

@@ -23,7 +23,7 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
 def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
   ret = []
   for i in range(pred.shape[0]):
-    bboxes_pred, mask = nms_boxes_and_mask(pred[i], iou_threshold=iou_threshold, conf_threshold=conf_threshold)
+    bboxes_pred, mask = jax.device_get(nms_boxes_and_mask(pred[i], iou_threshold=iou_threshold, conf_threshold=conf_threshold))
     bboxes_pred = bboxes_pred[mask]
     ret.append(bboxes_pred)
   return ret
@@ -39,10 +39,11 @@ def show_bbox(image, bboxes, dataset='coco'):
     from katacv.utils.pascal.constant import label2name
   image = Image.fromarray((image*255).astype('uint8'))
   if len(bboxes):
-    label2color = build_label2colors(bboxes[:,5])
+    label2color = build_label2colors(list(label2name.keys()))
+    # label2color = build_label2colors(bboxes[:,5])
   for bbox in bboxes:
     label = int(bbox[5])
-    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.3f}", box_color=label2color[label], format='yolo')
+    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.2f}", box_color=label2color[label], format='yolo')
     # print(label, label2name[label], label2color[label])
   image.show()
 
