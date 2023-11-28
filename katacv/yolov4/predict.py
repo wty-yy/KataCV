@@ -25,10 +25,10 @@ def predict(state: TrainState, images: jax.Array):
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   # args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse --load-id 82".split())
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 16".split())
+  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 218".split())
   args.batch_size = 1
-  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
+  args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
