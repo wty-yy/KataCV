@@ -53,6 +53,8 @@ def mAP(boxes, target_boxes, iou_threshold=0.5):
   @params::target_boxes.shape=(N,5) and last dim is (x,y,w,h,cls).
   """
   classes = jnp.unique(target_boxes[:,4])
+  if classes.size == 0:
+    return 1.0
   APs = 0
   for cls in classes:
     p, r = 1.0, 0.0  # update

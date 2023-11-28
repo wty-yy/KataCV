@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path.cwd().parent.parent))
 
+from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.imagenet.train import TrainState
 from katacv.yolov4.yolov4 import logits2cell
@@ -25,7 +26,7 @@ def predict(state: TrainState, images: jax.Array):
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   # args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse --load-id 82".split())
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 16".split())
+  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 53".split())
   args.batch_size = 1
   args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
   # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-mse-checkpoints")
@@ -48,10 +49,12 @@ if __name__ == '__main__':
   # images, bboxes, num_bboxes = next(sample_iter)
   # images, bboxes, num_bboxes = next(val_iter)
 
-  test_num = 10
+  test_num = 0
 
-  # for images, bboxes, num_bboxes in val_ds:
-  for images, bboxes, num_bboxes in train_ds:
+  APs, APn = [0, 0, 0], ['AP50', 'AP75', 'AP']
+  bar = tqdm(enumerate(val_ds))
+  for i, (images, bboxes, num_bboxes) in bar:
+  # for images, bboxes, num_bboxes in train_ds:
     images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
     pred = predict(state, images)
 
@@ -61,18 +64,20 @@ if __name__ == '__main__':
     import numpy as np
     np.set_printoptions(suppress=True)
     pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
-    for i in range(len(pred_bboxes)):
-      # print(np.round(np.array(pred_bboxes[i]), 4))
-      # print("Predict box num:", len(pred_bboxes[i]))
-      show_bbox(images[i], pred_bboxes[i], args.path_dataset.name)
-      AP50 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
-      AP75 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
-      AP = coco_mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]])
-      print(f"AP50: {AP50:.2f}, AP75: {AP75:.2f}, AP: {AP:.2f}")
-      # break
+    # for i in range(len(pred_bboxes)):
+    #   # print(np.round(np.array(pred_bboxes[i]), 4))
+    #   # print("Predict box num:", len(pred_bboxes[i]))
+    #   show_bbox(images[i], pred_bboxes[i], args.path_dataset.name)
+    #   AP50 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
+    #   AP75 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
+    #   AP = coco_mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]])
+    #   print(f"AP50: {AP50:.2f}, AP75: {AP75:.2f}, AP: {AP:.2f}")
+    #   # break
     test_num -= 1
     if test_num == 0:
       break
 
-    # print(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes))
+    for j, x in enumerate(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes)):
+      APs[j] += (x - APs[j]) / (i + 1)
+    bar.set_description(' '.join([f"{name}: {x:.4f}" for name, x in zip(APn, APs)]))
 
