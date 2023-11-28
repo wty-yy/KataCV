@@ -30,7 +30,7 @@ def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
 
 
 from PIL import Image
-def show_bbox(image, bboxes, dataset='coco'):
+def show_bbox(image, bboxes, dataset='coco', show_image=True):
   # print(bboxes)
   from katacv.utils.detection import plot_box_PIL, build_label2colors
   if dataset.lower() == 'coco':
@@ -45,7 +45,9 @@ def show_bbox(image, bboxes, dataset='coco'):
     label = int(bbox[5])
     image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.2f}", box_color=label2color[label], format='yolo')
     # print(label, label2name[label], label2color[label])
-  image.show()
+  if show_image:
+    image.show()
+  return image
 
 def mAP(boxes, target_boxes, iou_threshold=0.5):
   """

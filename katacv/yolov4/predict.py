@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : predict.py
+@Time    : 2023/11/28 10:20:30
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+2023/11/28: YOLOv4-0218:
+AP50: 0.5372 AP75: 0.3285 AP: 0.3174: 100%|██████████| 5000/5000 [14:51<00:00,  5.61it/s]
+'''
+
+if __name__ == '__main__':
+  pass
+
 from pathlib import Path
 import sys
 sys.path.append(str(Path.cwd().parent.parent))
@@ -10,14 +25,14 @@ from katacv.yolov4.build_yolo_target import cell2pixel
 from katacv.yolov4.metric import logits2prob_from_list, get_pred_bboxes, show_bbox, calc_AP50_AP75_AP, mAP, coco_mAP
 
 @jax.jit
-def predict(state: TrainState, images: jax.Array):
+def predict(state: TrainState, images: jax.Array, anchors: List[jax.Array]):
   logits = state.apply_fn(
     {'params': state.params, 'batch_stats': state.batch_stats},
     images, train=False
   )
   pred_cell = [logits2cell(logits[i]) for i in range(3)]
   pred_pixel = [jax.vmap(cell2pixel, in_axes=(0,None,None), out_axes=0)(
-    pred_cell[i], 2**(i+3), args.anchors[i]
+    pred_cell[i], 2**(i+3), anchors[i]
   ) for i in range(3)
   ]
   pred_pixel_prob = logits2prob_from_list(pred_pixel)
@@ -52,11 +67,11 @@ if __name__ == '__main__':
   test_num = 0  # If test, set a test number
 
   APs, APn = [0, 0, 0], ['AP50', 'AP75', 'AP']
-  bar = tqdm(enumerate(val_ds))
+  bar = tqdm(enumerate(val_ds), total=len(val_ds))
   for i, (images, bboxes, num_bboxes) in bar:
   # for images, bboxes, num_bboxes in train_ds:
     images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
-    pred = predict(state, images)
+    pred = predict(state, images, args.anchors)
 
     # print(jnp.sort(pred[0,:,4])[::-1][:50])
     # print(bboxes[0][:num_bboxes[0]])
@@ -64,7 +79,7 @@ if __name__ == '__main__':
     import numpy as np
     np.set_printoptions(suppress=True)
     pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
-    # for i in range(len(pred_bboxes)):
+    # for i in range(len(pred_bboxes)):  # show image
     #   # print(np.round(np.array(pred_bboxes[i]), 4))
     #   # print("Predict box num:", len(pred_bboxes[i]))
     #   show_bbox(images[i], pred_bboxes[i], args.path_dataset.name)
@@ -77,7 +92,7 @@ if __name__ == '__main__':
     if test_num == 0:
       break
 
-    for j, x in enumerate(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes)):
+    for j, x in enumerate(calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes)):  # test for APs
       APs[j] += (x - APs[j]) / (i + 1)
     bar.set_description(' '.join([f"{name}: {x:.4f}" for name, x in zip(APn, APs)]))
 
