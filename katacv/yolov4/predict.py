@@ -8,6 +8,8 @@
 @Desc    : 
 2023/11/28: YOLOv4-0218:
 AP50: 0.5372 AP75: 0.3285 AP: 0.3174: 100%|██████████| 5000/5000 [14:51<00:00,  5.61it/s]
+2023/11/30: YOLOv4-0300:
+AP50: 0.5403 AP75: 0.3334 AP: 0.3211: 100%|██████████| 5000/5000 [15:13<00:00,  5.47it/s]
 '''
 
 if __name__ == '__main__':
@@ -41,7 +43,7 @@ def predict(state: TrainState, images: jax.Array, anchors: List[jax.Array]):
 if __name__ == '__main__':
   from katacv.yolov4.parser import get_args_and_writer
   # args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse --load-id 82".split())
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 218".split())
+  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 300".split())
   args.batch_size = 1
   args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
   # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
