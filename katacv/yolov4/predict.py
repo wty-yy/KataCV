@@ -45,8 +45,8 @@ if __name__ == '__main__':
   # args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4-mse --load-id 82".split())
   args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 300".split())
   args.batch_size = 1
-  args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  # args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
   # images, bboxes, num_bboxes = next(sample_iter)
   # images, bboxes, num_bboxes = next(val_iter)
 
-  test_num = 0  # If test, set a test number
+  test_num = 1  # If test, set a test number
 
   APs, APn = [0, 0, 0], ['AP50', 'AP75', 'AP']
   bar = tqdm(enumerate(val_ds), total=len(val_ds))
@@ -81,15 +81,15 @@ if __name__ == '__main__':
     import numpy as np
     np.set_printoptions(suppress=True)
     pred_bboxes = get_pred_bboxes(pred, conf_threshold=0.1, iou_threshold=0.5)
-    # for i in range(len(pred_bboxes)):  # show image
-    #   # print(np.round(np.array(pred_bboxes[i]), 4))
-    #   # print("Predict box num:", len(pred_bboxes[i]))
-    #   show_bbox(images[i], pred_bboxes[i], args.path_dataset.name)
-    #   AP50 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
-    #   AP75 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
-    #   AP = coco_mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]])
-    #   print(f"AP50: {AP50:.2f}, AP75: {AP75:.2f}, AP: {AP:.2f}")
-    #   # break
+    for i in range(len(pred_bboxes)):  # show image
+      # print(np.round(np.array(pred_bboxes[i]), 4))
+      # print("Predict box num:", len(pred_bboxes[i]))
+      show_bbox(images[i], pred_bboxes[i], args.path_dataset.name)
+      AP50 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.5)
+      AP75 = mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]], iou_threshold=0.75)
+      AP = coco_mAP(pred_bboxes[i], bboxes[i][:num_bboxes[i]])
+      print(f"AP50: {AP50:.2f}, AP75: {AP75:.2f}, AP: {AP:.2f}")
+      # break
     test_num -= 1
     if test_num == 0:
       break

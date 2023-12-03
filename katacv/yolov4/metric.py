@@ -10,24 +10,56 @@ def logits2prob_from_list(pred_pixel):
   N = pred_pixel[0].shape[0]
   return jnp.concatenate([logits2prob(pred_pixel[i]).reshape(N, -1, 6) for i in range(3)], axis=1)
 
+def logits2cell(logits: jax.Array):
+  xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 2.0 + 0.5  # xy range: (-0.5, 1.5)
+  wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2  # wh range: (0, 4)
+  # xy = jax.nn.sigmoid(logits[...,:2])
+  # wh = jnp.exp(logits[...,2:4])
+  return jnp.concatenate([xy, wh, logits[...,4:]], axis=-1)
+
 from katacv.utils.detection import iou, iou_multiply
 @partial(jax.jit, static_argnums=[3,4])
-def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='diou'):
+def nms_boxes_and_mask_old(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='diou'):
   M = max_num_box
-  sort_idxs = jnp.argsort(boxes[:,4])[::-1][:M]  # only consider the first `max_num_box`
+  sort_idxs = jnp.argsort(-boxes[:,4])[:M]  # only consider the first `max_num_box`
   boxes = boxes[sort_idxs]
   ious = iou_multiply(boxes[:,:4], boxes[:,:4], format=iou_format)
   mask = (boxes[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
   return boxes, mask
 
+@partial(jax.jit, static_argnums=[3,4])
+def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='diou'):
+  """
+  Compute the predicted bounding boxes and the number of bounding boxes.
+  
+  Args:
+    box: The predicted result by the model.  [shape=(N,6), elem=(x,y,w,h,conf,cls)]
+    iou_threshold: The IOU threshold of NMS.
+    conf_threshold: The confidence threshold of NMS.
+    max_num_box: The maximum number of the bounding boxes.
+    iou_format: THe format of IOU is used in calculating IOU threshold.
+  
+  Return:
+    box: The bounding boxes after NMS.  [shape=(max_num_box, 6)]
+    pnum: The number of the predicted bounding boxes. [int]
+  """
+  M = max_num_box * 9  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
+  sort_idxs = jnp.argsort(-box[:,4])[:M]  # only consider the first `max_num_box`
+  box = box[sort_idxs]
+  ious = iou_multiply(box[:,:4], box[:,:4], format=iou_format)
+  mask = (box[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
+  idx = jnp.argwhere(mask, size=max_num_box, fill_value=-1)[:,0]  # nonzeros
+  dbox = box[idx]
+  pnum = (idx != -1).sum()
+  return dbox, pnum
+
 def get_pred_bboxes(pred, iou_threshold=0.3, conf_threshold=0.2):
   ret = []
   for i in range(pred.shape[0]):
-    bboxes_pred, mask = jax.device_get(nms_boxes_and_mask(pred[i], iou_threshold=iou_threshold, conf_threshold=conf_threshold))
-    bboxes_pred = bboxes_pred[mask]
-    ret.append(bboxes_pred)
+    pbox, pnum = jax.device_get(nms(pred[i], iou_threshold=iou_threshold, conf_threshold=conf_threshold))
+    pbox = pbox[:pnum]
+    ret.append(pbox)
   return ret
-
 
 from PIL import Image
 def show_bbox(image, bboxes, dataset='coco', show_image=True):
