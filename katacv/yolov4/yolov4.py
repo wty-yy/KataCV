@@ -18,6 +18,9 @@
 BUGs fix:
 - mask_obj = target[...,4:5] == 0.0  # WTF?
 - when calculate the loss, use mask at last, don't use to the input!
+
+2023/12/3:
+Update predictor for validation metrics: P@50, R@50, AP@50, AP@75, mAP
 '''
 
 import sys, os
@@ -28,14 +31,8 @@ from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.imagenet.train import TrainState
 from katacv.utils.detection import iou
 from katacv.yolov4.build_yolo_target_multi import build_target, cell2pixel
-# from katacv.yolov4.build_yolo_target import build_target, cell2pixel
-
-def logits2cell(logits: jax.Array):
-  xy = (jax.nn.sigmoid(logits[...,:2]) - 0.5) * 2.0 + 0.5  # xy range: (-0.5, 1.5)
-  wh = (jax.nn.sigmoid(logits[...,2:4])*2)**2  # wh range: (0, 4)
-  # xy = jax.nn.sigmoid(logits[...,:2])
-  # wh = jnp.exp(logits[...,2:4])
-  return jnp.concatenate([xy, wh, logits[...,4:]], axis=-1)
+from katacv.yolov4.predictor import Predictor
+from katacv.yolov4.metric import logits2cell
 
 @partial(jax.jit, static_argnames=['train'])
 def model_step(
@@ -177,8 +174,10 @@ if __name__ == '__main__':
   val_ds = ds_builder.get_dataset(subset='val')
   # val_ds = ds_builder.get_dataset(subset='sample')
 
+  ### Build predictor for validation ###
+  predictor = Predictor(args, state)
+
   ### Train and evaluate ###
-  # from katacv.yolov4.metric import logits2prob_from_list, get_pred_bboxes, calc_AP50_AP75_AP
   start_time, global_step = time.time(), 0
   if args.train:
     for epoch in range(state.step//len(train_ds)+1, args.total_epochs+1):
@@ -187,10 +186,10 @@ if __name__ == '__main__':
       logs.reset()
       bar = tqdm(train_ds)
       # num_objs = []
-      for images, bboxes, num_bboxes in bar:
-        images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
+      for x, tbox, tnum in bar:
+        x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
         global_step += 1
-        state, (loss, pred_pixel, other_losses) = model_step(state, images, bboxes, num_bboxes, train=True)
+        state, (loss, pred_pixel, other_losses) = model_step(state, x, tbox, tnum, train=True)
         # num_objs.append(int(num_obj))
         logs.update(
           ['loss_train', 'loss_noobj_train', 'loss_coord_train', 'loss_obj_train', 'loss_class_train'],
@@ -211,26 +210,22 @@ if __name__ == '__main__':
           logs.reset()
       print("validating...")
       logs.reset()
-      for images, bboxes, num_bboxes in tqdm(val_ds):
-        images, bboxes, num_bboxes = images.numpy(), bboxes.numpy(), num_bboxes.numpy()
-        global_step += 1
-        _, (loss, pred_pixel, other_losses) = model_step(state, images, bboxes, num_bboxes, train=False)
-        # pred = logits2prob_from_list(pred_pixel)  # (N, -1, 6)
-        # pred_bboxes = get_pred_bboxes(pred)
-        # ap50, ap75, ap = calc_AP50_AP75_AP(pred_bboxes, bboxes, num_bboxes)
-        logs.update(
-          [
-            'loss_val', 'loss_noobj_val', 'loss_coord_val', 'loss_obj_val', 'loss_class_val',
-            #  'AP50_val', 'AP75_val', 'AP_val',
-            'epoch', 'learning_rate'
-          ],
-          [
-            loss, *other_losses,
-            #  ap50, ap75, ap,
-            epoch, args.learning_rate_fn(state.step)
-          ]
-        )
+      for x, tbox, tnum in tqdm(val_ds):
+        x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
+        predictor.update(x, tbox, tnum)
+      p50, r50, ap50, ap75, map = predictor.p_r_ap50_ap75_map()
+      logs.update(
+        [
+          'P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val',
+          'epoch', 'learning_rate'
+        ],
+        [
+          p50, r50, ap50, ap75, map,
+          epoch, args.learning_rate_fn(state.step)
+        ]
+      )
       logs.writer_tensorboard(writer, global_step)
+      predictor.reset()
       
       ### Save weights ###
       if epoch % args.save_weights_freq == 0:
