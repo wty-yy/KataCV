@@ -74,8 +74,12 @@ def show_bbox(image, bboxes, dataset='coco', show_image=True):
     label2color = build_label2colors(list(label2name.keys()))
     # label2color = build_label2colors(bboxes[:,5])
   for bbox in bboxes:
-    label = int(bbox[5])
-    image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.2f}", box_color=label2color[label], format='yolo')
+    if len(bbox) == 6:  # predicted bbox
+      label = int(bbox[5])
+      image = plot_box_PIL(image, bbox[:4], text=label2name[label]+f"{bbox[4]:.2f}", box_color=label2color[label], format='yolo')
+    else:  # target bbox
+      label = int(bbox[4])
+      image = plot_box_PIL(image, bbox[:4], text=label2name[label], box_color=label2color[label], format='yolo')
     # print(label, label2name[label], label2color[label])
   if show_image:
     image.show()
