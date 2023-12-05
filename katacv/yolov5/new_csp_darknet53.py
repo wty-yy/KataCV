@@ -79,7 +79,7 @@ class CSPDarkNet(nn.Module):
     outputs = []  # P3, P4, P5
     for i, n_blockneck in enumerate(stage_size):  # start from P2
       x = conv(filters=x.shape[-1]*2, kernel=(3,3), strides=(2,2))(x)
-      x = csp(n_bottleneck=n_blockneck, output_channel=x.shape[-1])
+      x = csp(n_bottleneck=n_blockneck, output_channel=x.shape[-1])(x)
       if i >= 1: outputs.append(x)
     return outputs
 
@@ -96,4 +96,4 @@ class PreTrain(nn.Module):
 if __name__ == '__main__':
   from katacv.utils.imagenet.train import train
   model = PreTrain(darknet=CSPDarkNet())
-  train(model, "CSPDarkNet53")
+  train(model, "NewCSPDarkNet53", verbose=True)
