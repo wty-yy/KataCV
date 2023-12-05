@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+'''
+@File    : predictor.py
+@Time    : 2023/12/03 13:52:59
+@Author  : wty-yy
+@Version : 1.0
+@Blog    : https://wty-yy.space/
+@Desc    : 
+2023/12/03: YOLOv4-0300:
+P@50=0.5012 R@50=0.3885 AP@50=0.3507 AP@75=0.1545 mAP=0.1729: 100%|████| 156/156 [00:31<00:00,  4.95it/s]
+'''
+
+if __name__ == '__main__':
+  pass
+
 from katacv.utils.imagenet.train import TrainState
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
@@ -37,7 +52,7 @@ class Predictor:
   def reset(self):
     self.pbox, self.tcls, self.tp = [], [], []
   
-  def update(self, x, tbox=None, tnum=None, nms_iou=0.4, nms_conf=0.1):
+  def update(self, x, tbox=None, tnum=None, nms_iou=0.4, nms_conf=0.05):
     """
     Update the prediction variables.
 
@@ -157,7 +172,7 @@ class Predictor:
       tp: The ture positive for the `pbox` after rearrange
     """
     sort_i = jnp.argsort(-pbox[:,4])
-    pbox = pbox[sort_i]  # Increase by confidence
+    pbox = pbox[sort_i]  # Decrease by confidence
     tp = jnp.zeros((pbox.shape[0],iout.shape[0]), jnp.bool_)
     def solve(tp):  # If tnum > 0
       ious = iou_multiply(pbox[:,:4], tbox[:,:4])  # shape=(N,M)
@@ -247,9 +262,9 @@ def metric_from_file(path_tg, path_pred):
 def metric_from_model():
   from katacv.yolov4.parser import get_args_and_writer
   args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 300".split())
-  # args.batch_size = 1
-  # args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  args.batch_size = 32
+  args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
+  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
 
   from katacv.yolov4.yolov4_model import get_yolov4_state
   state = get_yolov4_state(args)
@@ -267,6 +282,7 @@ def metric_from_model():
   predictor = Predictor(args, state)
 
   bar = tqdm(enumerate(val_ds), total=len(val_ds))
+  # bar = tqdm(enumerate(train_ds), total=len(train_ds))
   for i, (x, tbox, tnum) in bar:
     x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
     predictor.update(x, tbox, tnum)
@@ -274,6 +290,9 @@ def metric_from_model():
     #   idx = i * args.batch_size + j
     #   pbox = predictor.pbox[idx]
     #   show_bbox(x[j], pbox, args.path_dataset.name)
+    #   print("pbox:", pbox)
+    #   print("tbox:", tbox[0][:tnum[0]])
+    #   show_bbox(x[j], tbox[0][:tnum[0]], args.path_dataset.name)
     result = predictor.p_r_ap50_ap75_map()
     metrics = {
       'P@50': result[0],
