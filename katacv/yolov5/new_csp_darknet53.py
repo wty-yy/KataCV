@@ -7,6 +7,9 @@
 @Blog    : https://wty-yy.space/
 @Desc    : 
 Struct: https://user-images.githubusercontent.com/31005897/172404576-c260dcf9-76bb-4bc8-b6a9-f2d987792583.png
+Total Parameters:
+Origin CSP DarkNet53 (YOLOv4): 27,656,008 (110.6 MB)
+New CSP DarkNet53 (YOLOv5): 32,890,856 (131.6 MB)
 2023/12/05: Start training.
 '''
 import sys, os
