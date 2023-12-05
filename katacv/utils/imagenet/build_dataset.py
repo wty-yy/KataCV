@@ -22,6 +22,7 @@ args = Args(
     batch_size=128,
     shuffle_size=128*16
 )
+2023/12/5: Update image normalized.
 '''
 import tensorflow as tf
 tf.config.experimental.set_visible_devices([], "GPU")  # don't use gpu
@@ -75,8 +76,8 @@ def decode_and_aug(train: bool, target_size, padding):
             )
         else: img = get_center_crop(bytes, origin_shape, padding, target_size)
         img = tf.image.resize([img], [target_size, target_size])[0]
-        img = tf.cast(img, tf.uint8)
         img = tf.image.random_flip_left_right(img)
+        img /= 255.0
         label = tf.one_hot(label, depth=1000)
         return img, label
     return thunk
@@ -110,7 +111,8 @@ if __name__ == '__main__':
     from pathlib import Path
     cvt2Path = lambda x: Path(x)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
+    # parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/media/yy/Data/dataset/imagenet/"),
+    parser.add_argument("--path-dataset-tfrecord", type=cvt2Path, default=Path("/home/wty/Coding/datasets/imagenet/tfrecord"),
         help="the path of the tfrecord dataset directory")
     parser.add_argument("--image-size", type=int, default=224,
         help="the input image size of the model")
@@ -134,6 +136,7 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
     for img, label in ds.take(5):
+        print(tf.reduce_max(img), tf.reduce_min(img))
         plt.imshow(img[0])
         plt.title(label2readable[int(tf.argmax(label[0]))])
         plt.show()
