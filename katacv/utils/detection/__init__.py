@@ -195,7 +195,7 @@ def iou_multiply(boxes1, boxes2, format='iou'):
     return result
 
 @partial(jax.jit, static_argnums=[3,4])
-def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, B=3, iou_format='iou'):
+def nms_boxes_and_mask_old(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, B=3, iou_format='iou'):
     """
     (JAX) Non-Maximum Suppression with `iou_threshold` and `conf_threhold`.
     Make sure to keep the matrices in same size, we must give the maximum number of bounding boxes in an image.
@@ -220,27 +220,53 @@ def nms_boxes_and_mask(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num_box
     mask = (boxes[:,0] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
     return boxes, mask
 
-def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
-    """
-    (Numpy) Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
-    @params::`boxes.shape=(M,6)` and last dim is `(c,x,y,w,h,cls)`.
-    @return::the boxes after NMS.
-    """
-    boxes = boxes[boxes[:,0]>conf_threshold]
-    conf_sorted_idxs = np.argsort(boxes[:,0])[::-1]
-    boxes = boxes[conf_sorted_idxs]
-    M = boxes.shape[0]
-    used = np.zeros(M, dtype='bool')
-    boxes_nms = np.zeros_like(boxes)
-    tot = 0
-    for i in range(M):
-        if used[i]: continue
-        boxes_nms[tot] = boxes[i]; tot += 1
-        for j in np.where((~used) & (np.arange(M)>i) & (boxes[:,5]==boxes[i,5]))[0]:
-            if iou(boxes[i,1:5], boxes[j,1:5])[0] > iou_threshold:
-                used[j] = True
-    boxes_nms = boxes_nms[:tot]
-    return boxes_nms
+@partial(jax.jit, static_argnums=[3,4])
+def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='diou'):
+  """
+  Compute the predicted bounding boxes and the number of bounding boxes.
+  
+  Args:
+    box: The predicted result by the model.  [shape=(N,6), elem=(x,y,w,h,conf,cls)]
+    iou_threshold: The IOU threshold of NMS.
+    conf_threshold: The confidence threshold of NMS.
+    max_num_box: The maximum number of the bounding boxes.
+    iou_format: THe format of IOU is used in calculating IOU threshold.
+  
+  Return:
+    box: The bounding boxes after NMS.  [shape=(max_num_box, 6)]
+    pnum: The number of the predicted bounding boxes. [int]
+  """
+  M = max_num_box * 9  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
+  sort_idxs = jnp.argsort(-box[:,4])[:M]  # only consider the first `max_num_box`
+  box = box[sort_idxs]
+  ious = iou_multiply(box[:,:4], box[:,:4], format=iou_format)
+  mask = (box[:,4] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
+  idx = jnp.argwhere(mask, size=max_num_box, fill_value=-1)[:,0]  # nonzeros
+  dbox = box[idx]
+  pnum = (idx != -1).sum()
+  return dbox, pnum
+
+# def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
+#     """
+#     (Numpy) Calculate the Non-Maximum Suppresion for boxes between the classes in **one sample**.
+#     @params::`boxes.shape=(M,6)` and last dim is `(c,x,y,w,h,cls)`.
+#     @return::the boxes after NMS.
+#     """
+#     boxes = boxes[boxes[:,0]>conf_threshold]
+#     conf_sorted_idxs = np.argsort(boxes[:,0])[::-1]
+#     boxes = boxes[conf_sorted_idxs]
+#     M = boxes.shape[0]
+#     used = np.zeros(M, dtype='bool')
+#     boxes_nms = np.zeros_like(boxes)
+#     tot = 0
+#     for i in range(M):
+#         if used[i]: continue
+#         boxes_nms[tot] = boxes[i]; tot += 1
+#         for j in np.where((~used) & (np.arange(M)>i) & (boxes[:,5]==boxes[i,5]))[0]:
+#             if iou(boxes[i,1:5], boxes[j,1:5])[0] > iou_threshold:
+#                 used[j] = True
+#     boxes_nms = boxes_nms[:tot]
+#     return boxes_nms
 
 def nms_old(boxes, iou_threshold=0.3, conf_threshold=0.2):
     """

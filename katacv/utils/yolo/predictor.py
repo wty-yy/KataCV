@@ -8,20 +8,18 @@
 @Desc    : 
 2023/12/03: YOLOv4-0300:
 P@50=0.5012 R@50=0.3885 AP@50=0.3507 AP@75=0.1545 mAP=0.1729: 100%|████| 156/156 [00:31<00:00,  4.95it/s]
+2023/12/17: Change Predictor to BasePredict.
 '''
-from katacv.utils.imagenet.train import TrainState
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
-from katacv.yolov4.parser import YOLOv4Args
-from katacv.yolov4.build_yolo_target import cell2pixel
-from katacv.yolov4.metric import logits2cell, logits2prob_from_list, nms, show_bbox
-from katacv.utils.detection import iou_multiply
+from katacv.utils.detection import iou_multiply, nms
 from katacv.utils.detection.utils_ap import ap_per_class
 import numpy as np
 
-class Predictor:
+class BasePredictor:
   """
-  Predict and metrics for the YOLO model.
+  The father class used to predict and metrics for the YOLO model.
+  Must define predict method in subclass.
 
   Args:
     args: YOLO model argmentations.
@@ -31,15 +29,12 @@ class Predictor:
     tp: Ture positive for the `pbox`. List[tp.shape=(M,len(iout))]
     iout: The threshold of iou for deciding whether is the ture positive. List[int]
   """
-  args: YOLOv4Args
-  state: TrainState
   pbox: List[np.ndarray]  # np.float32
   tcls: List[np.ndarray]  # np.int32
   tp: List[np.ndarray]  # np.bool_
   iout: jax.Array
 
-  def __init__(self, args: YOLOv4Args, state: TrainState, iout=None):
-    self.args, self.state = args, state
+  def __init__(self, iout=None):
     self.iout = jnp.linspace(0.5, 0.95, 10) if iout is None else iout
     if type(self.iout) == float:
       self.iout = jnp.array([self.iout,])
@@ -111,20 +106,17 @@ class Predictor:
     p50, r50, ap50, ap75, map = p50.mean(), r50.mean(), ap50.mean(), ap75.mean(), ap.mean()
     return p50, r50, ap50, ap75, map
 
-  @partial(jax.jit, static_argnums=0)
   def predict(self, x: jax.Array):
-    logits = self.state.apply_fn(
-      {'params': self.state.params, 'batch_stats': self.state.batch_stats},
-      x, train=False
-    )
-    pred_cell = [logits2cell(logits[i]) for i in range(3)]
-    pred_pixel = [
-      jax.vmap(cell2pixel, in_axes=(0,None,None), out_axes=0)(
-        pred_cell[i], 2**(i+3), self.args.anchors[i]
-      ) for i in range(3)
-    ]
-    pred_pixel_prob = logits2prob_from_list(pred_pixel)
-    return pred_pixel_prob
+    """
+    Subclass implement.
+    Don't forget: `@partial(jax.jit, static_argnums=0)`
+
+    Args:
+      x: Input image. [shape=(N,H,W,3)]
+    Return:
+      y: All predict box. [shape=(N,num_pbox,6), elem:(x,y,w,h,conf,cls)]
+    """
+    pass
 
   @partial(jax.jit, static_argnums=[0,2,3])
   def pred_and_nms(
@@ -233,75 +225,8 @@ def load_pred_and_target_file(path_pred: Path, path_tg: Path, format='coco'):
   tbox, tnum = load_dir(path_tg)
   return pbox, pnum, tbox, tnum, cls2idx
 
-def metric_from_file(path_tg, path_pred):
-  # Data from: https://github.com/rafaelpadilla/Object-Detection-Metrics
-  pbox, pnum, tbox, tnum, cls2idx = load_pred_and_target_file(path_pred, path_tg)
-  iout = jnp.linspace(0.3, 0.75, 10)  # just test
-  # i = 2
-  # pbox, tp = Predictor.compute_tp(pbox[i], pnum[i], tbox[i], tnum[i], iout)
-  # print(pbox[:pnum[i]])
-  # print(tp[:pnum[i]])
-  pbox, tp = jax.vmap(
-    Predictor.compute_tp, in_axes=[0,0,0,0,None], out_axes=0
-  )(pbox, pnum, tbox, tnum, iout)
-  p = Predictor(args=None, state=None)
-  for i in range(pbox.shape[0]):
-    p.pbox.append(pbox[i][:pnum[i]])
-    p.tcls.append(tbox[i][:tnum[i],4].astype(np.int32))
-    p.tp.append(tp[i][:pnum[i]])
-    # print("idx: ", i)
-    # print(pbox[i][:pnum[i]])
-    # print(tp[i][:pnum[i]])
-  print(p.ap_per_class())
-  print(p.p_r_ap50_ap75_map())
-
-def metric_from_model():
-  from katacv.yolov4.parser import get_args_and_writer
-  args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv4 --load-id 300".split())
-  args.batch_size = 32
-  args.path_cp = Path("/home/yy/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-  # args.path_cp = Path("/home/wty/Coding/GitHub/KataCV/logs/YOLOv4-checkpoints")
-
-  from katacv.yolov4.yolov4_model import get_yolov4_state
-  state = get_yolov4_state(args)
-
-  from katacv.utils.model_weights import load_weights
-  state = load_weights(state, args)
-
-  from katacv.utils.coco.build_dataset import DatasetBuilder
-  # from katacv.utils.pascal.build_dataset import DatasetBuilder
-  ds_builder = DatasetBuilder(args)
-  train_ds = ds_builder.get_dataset(subset='train')
-  val_ds = ds_builder.get_dataset(subset='val')
-  # sample_ds = ds_builder.get_dataset(subset='sample8')
-
-  predictor = Predictor(args, state)
-
-  bar = tqdm(enumerate(val_ds), total=len(val_ds))
-  # bar = tqdm(enumerate(train_ds), total=len(train_ds))
-  for i, (x, tbox, tnum) in bar:
-    x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
-    predictor.update(x, tbox, tnum)
-    # for j in range(args.batch_size):
-    #   idx = i * args.batch_size + j
-    #   pbox = predictor.pbox[idx]
-    #   show_bbox(x[j], pbox, args.path_dataset.name)
-    #   print("pbox:", pbox)
-    #   print("tbox:", tbox[0][:tnum[0]])
-    #   show_bbox(x[j], tbox[0][:tnum[0]], args.path_dataset.name)
-    result = predictor.p_r_ap50_ap75_map()
-    metrics = {
-      'P@50': result[0],
-      'R@50': result[1],
-      'AP@50': result[2],
-      'AP@75': result[3],
-      'mAP': result[4],
-    }
-    bar.set_description(' '.join(f"{key}={value:.4f}" for key, value in metrics.items()))
-
 if __name__ == '__main__':
   # path_tg = Path("/home/wty/Coding/GitHub/Object-Detection-Metrics-master/groundtruths")
   # path_pred = Path("/home/wty/Coding/GitHub/Object-Detection-Metrics-master/detections")
   # metric_from_file(path_tg, path_pred)
-
-  metric_from_model()
+  pass

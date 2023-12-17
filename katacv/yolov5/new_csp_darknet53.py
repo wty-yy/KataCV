@@ -11,15 +11,13 @@ Total Parameters:
 Origin CSP DarkNet53 (YOLOv4): 27,656,008 (110.6 MB)
 New CSP DarkNet53 (YOLOv5): 32,890,856 (131.6 MB)
 2023/12/05: Start training.
+2023/12/07: Complete training: 76.23%(top-1), 93.07%(top-5)
 '''
 import sys, os
 sys.path.append(os.getcwd())
 
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
-
-def silu(x):
-  return x * jax.nn.sigmoid(x)
 
 class ConvBlock(nn.Module):
   filters: int
@@ -70,7 +68,7 @@ class CSP(nn.Module):
     return self.conv(filters=self.output_channel, kernel=(1,1))(x)
 
 class CSPDarkNet(nn.Module):
-  act: Callable = silu
+  act: Callable = nn.silu
 
   @nn.compact
   def __call__(self, x, train: bool):
