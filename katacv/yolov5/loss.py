@@ -7,11 +7,11 @@ def BCE(logits, y, mask):
   return -(mask * (
     y * jax.nn.log_sigmoid(logits) +
     (1-y) * jax.nn.log_sigmoid(-logits)
-  )).mean()
+  )).sum() / mask.sum() / y.shape[-1]  # mean
 
-def CIOU(box1, box2, mask):
-  fn = partial(iou, format='ciou')
-  return (mask * (1 - jax.vmap(fn, (0, 0))(box1, box2))).mean()
+# def CIOU(box1, box2, mask):
+#   fn = partial(iou, format='ciou')
+#   return (mask * (1 - jax.vmap(fn, (0, 0))(box1, box2))).sum() / mask.sum()
 
 class ComputeLoss:
   def __init__(self, args: YOLOv5Args):
@@ -27,7 +27,7 @@ class ComputeLoss:
       [(0, 0), (-1, 0), (1, 0), (0, 1), (0, -1)], dtype=jnp.float32
     ) * 0.5
 
-  @partial(jax.jit, static_argnums=0)
+  @partial(jax.jit, static_argnums=[0,5])
   def train_step(
     self, state: train_state.TrainState,
     x: jnp.ndarray, box: jnp.ndarray,
@@ -48,17 +48,18 @@ class ComputeLoss:
         t (target): [shape=(N,3,H,W,6)]
         anchors: [shape=(3,2)]
       """
-      mask = t[..., 4] == 1  # positive mask
+      mask = t[..., 4:5] == 1  # positive mask
       xy = (jax.nn.sigmoid(p[...,:2]) - 0.5) * 2.0 + 0.5
-      wh = (jax.nn.sigmoid(p[2:4]) * 2) ** 2 * anchors[1,3,1,1,2]
-      ious = iou(jnp.concatenate([xy, wh], -1), t[..., :4], format='ciou')
-      lbox = (mask * (1 - ious)).mean()
+      wh = (jax.nn.sigmoid(p[...,2:4]) * 2) ** 2 * anchors.reshape(1,3,1,1,2)
+      ious = iou(jnp.concatenate([xy, wh], -1), t[..., :4], format='ciou', keepdim=True)
+      lbox = (mask * (1 - ious)).sum() / mask.sum()
       lobj = (
-        BCE(p[..., 4], jnp.clip(ious, 0), mask) +  # positive
-        BCE(p[..., 4], 0, 1-mask)  # negetive
+        BCE(p[..., 4:5], jnp.clip(jax.lax.stop_gradient(ious), 0), mask) +  # positive
+        BCE(p[..., 4:5], jnp.zeros_like(ious), 1-mask)  # negetive
       )
       hot = jax.nn.one_hot(t[..., 5], self.nc)
       lcls = BCE(p[..., 5:], hot, mask)
+      print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")
       return lbox, lobj, lcls
     
     def loss_fn(params):
@@ -124,11 +125,18 @@ class ComputeLoss:
     return target
 
 def cell2pixel(xy, scale):
+  """
+  Convert cell relative position to pixel position.
+  Input shape = [B,A,H,W,C] or [H,W,C] or [B,H,W,C]
+  Output shape is same as input shape.
+  """
   assert xy.shape[-1] == 2
+  init_shape = xy.shape
   h, w = xy.shape[-3:-1]
-  if xy.ndim == 3: xy.reshape(-1, h, w, 2)
+  if xy.ndim != 4: xy = xy.reshape(-1, h, w, 2)
   dx, dy = [jnp.repeat(x[None,...], xy.shape[0], 0) for x in jnp.meshgrid(jnp.arange(h), jnp.arange(w))]
-  return jnp.stack([(xy[...,0]+dx)*scale, (xy[...,1]+dy)*scale], -1)
+  xy = jnp.stack([(xy[...,0]+dx)*scale, (xy[...,1]+dy)*scale], -1)
+  return xy.reshape(*init_shape)
 
 def target_debug(x, target):
   from katacv.utils.yolo.utils import show_box

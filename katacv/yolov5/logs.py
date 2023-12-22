@@ -12,6 +12,11 @@ logs = Logs(
     'AP@50_val': MeanMetric(),
     'AP@75_val': MeanMetric(),
     'mAP_val': MeanMetric(),
+
+    'iou': MeanMetric(),
+    'ciou': MeanMetric(),
+    '1-ciou': MeanMetric(),
+    'num_pos': MeanMetric(),
     
     'epoch': 0,
     'SPS': MeanMetric(),
@@ -31,6 +36,12 @@ logs = Logs(
       'AP@50_val',
       'AP@75_val',
       'mAP_val',
+    ],
+    'metrics/debug': [
+      'iou',
+      'ciou',
+      '1-ciou',
+      'num_pos',
     ],
     'charts': [
       'SPS', 'SPS_avg',

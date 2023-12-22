@@ -20,7 +20,7 @@ class YOLODataset(Dataset):
     self.augment = False if subset == 'val' else True
     self.max_num_bboxes = (
       MAX_NUM_BBOXES_TRAIN if subset == 'train' else MAX_NUM_BBOXES_VAL
-    )
+    ) * 4  # use 4 mosaic
     path_annotation = self.path_dataset.joinpath(f"{subset}_annotation.txt")
     paths = np.genfromtxt(str(path_annotation), dtype=np.str_)
     self.paths_img, self.paths_box = paths[:, 0], paths[:, 1]
@@ -126,8 +126,8 @@ if __name__ == '__main__':
   args = get_args_and_writer(no_writer=True)
   ds_builder = DatasetBuilder(args)
   args.batch_size = 1
-  # ds = ds_builder.get_dataset(subset='train')
-  ds = ds_builder.get_dataset(subset='val')
+  ds = ds_builder.get_dataset(subset='train')
+  # ds = ds_builder.get_dataset(subset='val')
   print("Dataset size:", len(ds))
   iterator = iter(ds)
   # image, bboxes, num_bboxes = next(iterator)

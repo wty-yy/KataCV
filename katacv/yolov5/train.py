@@ -6,11 +6,13 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
+2023/12/22: Start training on my 4080.
 '''
 import sys, os
 sys.path.append(os.getcwd())
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
+import numpy as np
 
 if __name__ == '__main__':
   ### Initialize arguments and tensorboard writer ###
@@ -59,17 +61,17 @@ if __name__ == '__main__':
       print("training...")
       logs.reset()
       bar = tqdm(train_ds)
-      # num_objs = []
-      for x, tbox, tnum in bar:
-        x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
+      for x, tbox, tnum in bar:  # Normalize image x !
+        x, tbox, tnum = x.numpy().astype(np.float32) / 255.0, tbox.numpy(), tnum.numpy()
         global_step += 1
-        state, (loss, pred_pixel, other_losses) = compute_loss.train_step(state, x, tbox, tnum, train=True)
-        # num_objs.append(int(num_obj))
+        state, metrics = compute_loss.train_step(state, x, tbox, tnum, train=True)
         logs.update(
-          ['loss_train', 'loss_noobj_train', 'loss_coord_train', 'loss_obj_train', 'loss_class_train'],
-          [loss, *other_losses]
+          [
+            'loss_train', 'loss_box_train', 'loss_obj_train', 'loss_cls_train',
+          ],
+          metrics
         )
-        bar.set_description(f"loss={loss:.4f}, lr={args.learning_rate_fn(state.step):.8f}")
+        bar.set_description(f"loss={metrics[0]:.4f}, lr={args.learning_rate_fn(state.step):.8f}")
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
             ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
@@ -85,9 +87,12 @@ if __name__ == '__main__':
       print("validating...")
       logs.reset()
       for x, tbox, tnum in tqdm(val_ds):
-        x, tbox, tnum = x.numpy(), tbox.numpy(), tnum.numpy()
+        x, tbox, tnum = x.numpy().astype(np.float32) / 255.0, tbox.numpy(), tnum.numpy()
         predictor.update(x, tbox, tnum)
       p50, r50, ap50, ap75, map = predictor.p_r_ap50_ap75_map()
+      for name, val in zip(['P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val'], [p50, r50, ap50, ap75, map]):
+        print(f"{name}={val:.4f}", end=' ')
+      print()
       logs.update(
         [
           'P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val',

@@ -18,7 +18,7 @@ class Predictor(BasePredictor):
     y, batch_size = [], x.shape[0]
     for i in range(3):
       xy = (jax.nn.sigmoid(logits[i][...,:2]) - 0.5) * 2 + 0.5
-      cell2pixel(xy, scale=2**(i+3))
+      xy = cell2pixel(xy, scale=2**(i+3))
       wh = (jax.nn.sigmoid(logits[i][...,2:4]) * 2) * self.args.anchors[i].reshape(1,3,1,1,2)
       conf = logits[i][...,4:5] * jnp.max(logits[i][...,5:], axis=-1, keepdims=True)
       cls = jnp.argmax(logits[i][...,5:], axis=-1, keepdims=True)
