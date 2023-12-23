@@ -21,14 +21,14 @@ class ComputeLoss:
     self.coef_box = args.coef_box
     self.coef_obj = args.coef_obj
     self.coef_cls = args.coef_cls
-    self.balance_obj = [4.0, 1.0, 4.0]
+    self.balance_obj = [4.0, 1.0, 0.4]
     self.aspect_ratio_thre = 4.0
     self.offset = jnp.array(
       [(0, 0), (-1, 0), (1, 0), (0, 1), (0, -1)], dtype=jnp.float32
     ) * 0.5
 
   @partial(jax.jit, static_argnums=[0,5])
-  def train_step(
+  def step(
     self, state: train_state.TrainState,
     x: jnp.ndarray, box: jnp.ndarray,
     nb: jnp.ndarray, train: bool
@@ -53,10 +53,14 @@ class ComputeLoss:
       wh = (jax.nn.sigmoid(p[...,2:4]) * 2) ** 2 * anchors.reshape(1,3,1,1,2)
       ious = iou(jnp.concatenate([xy, wh], -1), t[..., :4], format='ciou', keepdim=True)
       lbox = (mask * (1 - ious)).sum() / mask.sum()
-      lobj = (
-        BCE(p[..., 4:5], jnp.clip(jax.lax.stop_gradient(ious), 0), mask) +  # positive
-        BCE(p[..., 4:5], jnp.zeros_like(ious), 1-mask)  # negetive
-      )
+      ious = jax.lax.stop_gradient(ious)  # Don't forget stop gradient after box loss
+      tobj = jnp.zeros_like(ious)
+      tobj += mask * jnp.clip(ious, 0.0)
+      lobj = BCE(p[..., 4:5], tobj, jnp.ones_like(mask))
+      # lobj = (
+      #   BCE(p[..., 4:5], jnp.clip(jax.lax.stop_gradient(ious), 0), mask) * mask.sum() +  # positive
+      #   BCE(p[..., 4:5], jnp.zeros_like(ious), 1-mask) * (1-mask).sum()  # negetive
+      # ).mean()  # Calculate for all
       hot = jax.nn.one_hot(t[..., 5], self.nc)
       lcls = BCE(p[..., 5:], hot, mask)
       print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")

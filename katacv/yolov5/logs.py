@@ -7,6 +7,11 @@ logs = Logs(
     'loss_box_train': MeanMetric(),
     'loss_cls_train': MeanMetric(),
 
+    'loss_val': MeanMetric(),
+    'loss_obj_val': MeanMetric(),
+    'loss_box_val': MeanMetric(),
+    'loss_cls_val': MeanMetric(),
+
     'P@50_val': MeanMetric(),
     'R@50_val': MeanMetric(),
     'AP@50_val': MeanMetric(),
@@ -36,6 +41,10 @@ logs = Logs(
       'AP@50_val',
       'AP@75_val',
       'mAP_val',
+      'loss_val',
+      'loss_obj_val',
+      'loss_box_val',
+      'loss_cls_val',
     ],
     'metrics/debug': [
       'iou',
