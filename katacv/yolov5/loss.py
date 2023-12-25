@@ -16,6 +16,7 @@ def BCE(logits, y, mask):
 class ComputeLoss:
   def __init__(self, args: YOLOv5Args):
     self.batch_size = args.batch_size
+    self.weight_decay = args.weight_decay
     self.anchors = args.anchors
     self.nc = args.num_classes
     self.coef_box = args.coef_box
@@ -57,10 +58,6 @@ class ComputeLoss:
       tobj = jnp.zeros_like(ious)
       tobj += mask * jnp.clip(ious, 0.0)
       lobj = BCE(p[..., 4:5], tobj, jnp.ones_like(mask))
-      # lobj = (
-      #   BCE(p[..., 4:5], jnp.clip(jax.lax.stop_gradient(ious), 0), mask) * mask.sum() +  # positive
-      #   BCE(p[..., 4:5], jnp.zeros_like(ious), 1-mask) * (1-mask).sum()  # negetive
-      # ).mean()  # Calculate for all
       hot = jax.nn.one_hot(t[..., 5], self.nc)
       lcls = BCE(p[..., 5:], hot, mask)
       print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")
@@ -81,7 +78,8 @@ class ComputeLoss:
       lbox *= self.coef_box
       lobj *= self.coef_obj
       lcls *= self.coef_cls
-      loss = self.batch_size * (lbox + lobj + lcls)
+      weight_l2 = 0.5 * sum(jnp.sum(x**2) for x in jax.tree_util.tree_leaves(params) if x.ndim > 1)
+      loss = self.batch_size * (lbox + lobj + lcls) + self.weight_decay * weight_l2
       return loss, (updates, lbox, lobj, lcls)
     if train:
       (loss, (updates, *metrics)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)

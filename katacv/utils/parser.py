@@ -102,9 +102,10 @@ class Parser(argparse.ArgumentParser):
                 save_code=True,
             )
         writer = SummaryWriter(args.path_logs.joinpath(args.run_name))
+        enter = '\n'
         writer.add_text(
             "hyper-parameters",
-            "|param|value|\n|-|-|\n%s" % ('\n'.join([f"|{key}|{value}|" for key, value in vars(args).items()]))
+            "|param|value|\n|-|-|\n%s" % ('\n'.join([f"|{key}|{str(value).replace(enter, ',')}|" for key, value in vars(args).items()]))
         )
         return writer
 

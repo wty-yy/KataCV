@@ -1,6 +1,17 @@
+"""
+No cache:
+(Train) Dataset size: 4224 [09:13<00:00,  7.63it/s]
+(Val) Dataset size: 178[00:04<00:00, 39.35it/s]
+Use cache:
+(Train) Load cache: 30 Gb, 26214 items [01:07<00:00, 388.87it/s]
+Dataset size: 4224 [07:34<00:00,  9.30it/s]
+(Val) Dataset size: 178 (Load cache: 11s)
+Dataset size: 178 [00:03<00:00, 56.41it/s]
+"""
 from katacv.utils.related_pkgs.utility import *
+from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.yolov5.parser import YOLOv5Args, get_args_and_writer
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, default_collate
 from katacv.utils.coco.constant import MAX_NUM_BBOXES_TRAIN, MAX_NUM_BBOXES_VAL
 import cv2
 import numpy as np
@@ -17,6 +28,7 @@ class YOLODataset(Dataset):
   def __init__(self, image_size: int, subset: str, path_dataset: Path):
     self.img_size = image_size
     self.path_dataset = path_dataset
+    self.subset = subset
     self.augment = False if subset == 'val' else True
     self.max_num_bboxes = (
       MAX_NUM_BBOXES_TRAIN if subset == 'train' else MAX_NUM_BBOXES_VAL
@@ -24,6 +36,8 @@ class YOLODataset(Dataset):
     path_annotation = self.path_dataset.joinpath(f"{subset}_annotation.txt")
     paths = np.genfromtxt(str(path_annotation), dtype=np.str_)
     self.paths_img, self.paths_box = paths[:, 0], paths[:, 1]
+    self.use_cache = False
+    self.cache = []
   
   def __len__(self):
     return len(self.paths_img)
@@ -35,6 +49,8 @@ class YOLODataset(Dataset):
     return bboxes
   
   def load_file(self, idx):
+    if self.use_cache and idx < len(self.cache):
+      return self.cache[idx]
     path_img, path_box = self.paths_img[idx], self.paths_box[idx]
     img = np.array(Image.open(str(self.path_dataset.joinpath(path_img))).convert('RGB')).astype('uint8')
     with warnings.catch_warnings():
@@ -101,10 +117,18 @@ class YOLODataset(Dataset):
       box[:, 1] += dh
       box = xywh2cxcywh(box)
 
-    pbox = np.zeros((self.max_num_bboxes, 5))
+    pbox = np.zeros((self.max_num_bboxes, 5))  # faster than np.pad
     if len(box):
       pbox[:len(box)] = box
     return img.copy(), pbox.copy(), len(box)
+  
+  def build_cache(self, memory_size_Gb=30):
+    n = math.floor(memory_size_Gb * 1024 ** 3 / (self.img_size ** 2 * 3))
+    n = min(self.__len__(), n)
+    print(f"Load {self.subset} images and box to cache {round(n * self.img_size ** 2 * 3 / (1024 ** 3))}Gb...")
+    bar = tqdm(range(n))
+    for i in bar:
+      self.cache.append(self.load_file(i))
 
 class DatasetBuilder:
   args: YOLOv5Args
@@ -112,7 +136,7 @@ class DatasetBuilder:
   def __init__(self, args: YOLOv5Args):
     self.args = args
   
-  def get_dataset(self, subset: str = 'val'):
+  def get_dataset(self, subset: str = 'val', use_cache=True):
     dataset = YOLODataset(image_size=self.args.image_shape[0], subset=subset, path_dataset=self.args.path_dataset)
     ds = DataLoader(
       dataset, batch_size=self.args.batch_size,
@@ -120,24 +144,28 @@ class DatasetBuilder:
       num_workers=self.args.num_data_workers,
       drop_last=True,
     )
+    if use_cache:
+      ds.dataset.build_cache()
+      ds.dataset.use_cache = True
     return ds
 
 if __name__ == '__main__':
   args = get_args_and_writer(no_writer=True)
   ds_builder = DatasetBuilder(args)
-  args.batch_size = 1
-  ds = ds_builder.get_dataset(subset='train')
+  # args.batch_size = 1
+  ds = ds_builder.get_dataset(subset='train', use_cache=False)
   # ds = ds_builder.get_dataset(subset='val')
   print("Dataset size:", len(ds))
-  iterator = iter(ds)
+  # iterator = iter(ds)
   # image, bboxes, num_bboxes = next(iterator)
   # image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
   # print(image.shape, bboxes.shape, num_bboxes.shape)
-  # for image, bboxes, num_bboxes in tqdm(ds):
-  #   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-  for i in range(8):
-    image, bboxes, num_bboxes = next(iterator)
+  for image, bboxes, num_bboxes in tqdm(ds):
     image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
-    print(image.shape, bboxes.shape, num_bboxes.shape)
-    show_box(image[0], bboxes[0][np.arange(num_bboxes[0])])
+    # print(type(image))
+  # for i in range(8):
+  #   image, bboxes, num_bboxes = next(iterator)
+  #   image, bboxes, num_bboxes = image.numpy(), bboxes.numpy(), num_bboxes.numpy()
+  #   print(image.shape, bboxes.shape, num_bboxes.shape)
+  #   show_box(image[0], bboxes[0][np.arange(num_bboxes[0])])
   

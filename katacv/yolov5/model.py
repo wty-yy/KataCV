@@ -123,7 +123,10 @@ def get_state(args: YOLOv5Args, use_init=True, verbose=False):
   return TrainState.create(
     apply_fn=model.apply,
     params=variables.get('params'),
-    tx=optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True),
+    tx=optax.chain(
+      optax.clip_by_global_norm(max_norm=10.0),
+      optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True)
+    ),
     batch_stats=variables.get('batch_stats')
   )
 

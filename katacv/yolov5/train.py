@@ -13,6 +13,7 @@ Fix bugs:
 3. Fix the prediction function for confidence calculating.
 4. Update self.state in predictor for evaluating metrics in-time [must pass new state].
 2023/12/23: Use 30 batch size, 97% GPU memory
+2023/12/25: Training 79 epochs found no weight decay and gradient norm clip (max_norm=10.0)!
 '''
 import sys, os
 sys.path.append(os.getcwd())
