@@ -35,6 +35,7 @@ class CVArgs(NamedTuple):
     shuffle_size: int
     image_size: int
     image_shape: Sequence[int]
+    max_num_box: int
     # Model
     input_shape: int
     train: bool

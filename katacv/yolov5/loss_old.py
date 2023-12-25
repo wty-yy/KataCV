@@ -22,7 +22,6 @@ class ComputeLoss:
     self.coef_box = args.coef_box
     self.coef_obj = args.coef_obj
     self.coef_cls = args.coef_cls
-    self.max_num_target = args.max_num_box * 9 * 3  # 9 anchors, 3 offset
     self.balance_obj = [4.0, 1.0, 0.4]
     self.aspect_ratio_thre = 4.0
     self.offset = jnp.array(
@@ -53,26 +52,12 @@ class ComputeLoss:
       mask = t[..., 4:5] == 1  # positive mask
       xy = (jax.nn.sigmoid(p[...,:2]) - 0.5) * 2.0 + 0.5
       wh = (jax.nn.sigmoid(p[...,2:4]) * 2) ** 2 * anchors.reshape(1,3,1,1,2)
-      ### 43 mins each epoch (imagesize=640*640, batchsize=28) -----------------
       ious = iou(jnp.concatenate([xy, wh], -1), t[..., :4], format='ciou', keepdim=True)
       lbox = (mask * (1 - ious)).sum() / mask.sum()
       ious = jax.lax.stop_gradient(ious)  # Don't forget stop gradient after box loss
       tobj = jnp.zeros_like(ious)
       tobj += mask * jnp.clip(ious, 0.0)
       lobj = BCE(p[..., 4:5], tobj, jnp.ones_like(mask))
-      ### ----------------------------------------------------------------------
-      # # Used idxs optimize: 2023.12.26. 01:24, but don't use -----------------
-      # idxs = jnp.argwhere(t[...,4], size=self.max_num_target, fill_value=-1).transpose()
-      # nt = (t[...,4] != 0).sum()  # number of target box
-      # st = t[*idxs, :4]  # subset target box
-      # sp = jnp.concatenate([xy, wh], -1)[*idxs]  # subset predict box
-      # ious = iou(sp, st, format='ciou')
-      # ious *= (idxs[0] != -1)  # clean fill_value
-      # lbox = (1-ious).sum() / nt
-      # ious = jax.lax.stop_gradient(ious).clip(0.0)  # Don't forget stop gradient after box loss
-      # t = t.at[*idxs, 4].set(ious)
-      # lobj = BCE(p[...,4:5], t[...,4:5], jnp.ones_like(mask))
-      ### ----------------------------------------------------------------------
       hot = jax.nn.one_hot(t[..., 5], self.nc)
       lcls = BCE(p[..., 5:], hot, mask)
       print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")

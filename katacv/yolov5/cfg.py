@@ -26,8 +26,8 @@ translate = 0.1  # translation (+/- fraction)
 scale = 0.5  # scale (+/- gain)
 fliplr = 0.5  # flip left-right (probability)
 
-image_shape = (416, 416, 3)
-# image_shape = (640, 640, 3)
+# image_shape = (416, 416, 3)
+image_shape = (640, 640, 3)
 anchors = jnp.array([
   [[10,13], [16,30], [33,23]],  # P3/8
   [[30,61], [62,45], [59,119]],  # P4/16

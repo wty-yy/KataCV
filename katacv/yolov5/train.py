@@ -49,8 +49,9 @@ if __name__ == '__main__':
   
   from katacv.utils.yolo.build_dataset import DatasetBuilder
   ds_builder = DatasetBuilder(args)
-  train_ds = ds_builder.get_dataset(subset='train')
-  val_ds = ds_builder.get_dataset(subset='val')
+  train_ds = ds_builder.get_dataset(subset='train', use_cache=False)
+  val_ds = ds_builder.get_dataset(subset='val', use_cache=False)
+  args.max_num_box = train_ds.dataset.max_num_box
 
   ### Build predictor for validation ###
   from katacv.yolov5.predict import Predictor

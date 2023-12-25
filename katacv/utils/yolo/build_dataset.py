@@ -30,7 +30,7 @@ class YOLODataset(Dataset):
     self.path_dataset = path_dataset
     self.subset = subset
     self.augment = False if subset == 'val' else True
-    self.max_num_bboxes = (
+    self.max_num_box = (
       MAX_NUM_BBOXES_TRAIN if subset == 'train' else MAX_NUM_BBOXES_VAL
     ) * 4  # use 4 mosaic
     path_annotation = self.path_dataset.joinpath(f"{subset}_annotation.txt")
@@ -117,7 +117,7 @@ class YOLODataset(Dataset):
       box[:, 1] += dh
       box = xywh2cxcywh(box)
 
-    pbox = np.zeros((self.max_num_bboxes, 5))  # faster than np.pad
+    pbox = np.zeros((self.max_num_box, 5))  # faster than np.pad
     if len(box):
       pbox[:len(box)] = box
     return img.copy(), pbox.copy(), len(box)
