@@ -28,10 +28,3 @@ class Predictor(BasePredictor):
     y = jnp.concatenate(y, 1)  # shape=(batch_size,all_pbox_num,6)
     return y
   
-  def reset(self, state=None):
-    super().reset()
-    if state is not None:
-      self.state = state
-
-
-  

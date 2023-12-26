@@ -82,15 +82,20 @@ class ComputeLoss:
       # print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")
       return lbox, lobj, lcls
     
+    def single_loss_test_fn(p, t, anchors):
+      return 0.0, 0.0, 0.0
+    
     def loss_fn(params):
       logits, updates = state.apply_fn(
         {'params': params, 'batch_stats': state.batch_stats},
         x, train=True, mutable=['batch_stats']
       )
+      # targets = jax.vmap(self.build_target_test)(logits, box, nb)
       targets = jax.vmap(self.build_target)(logits, box, nb)
       lbox, lobj, lcls = 0, 0, 0
       for i in range(3):
-        losses = single_loss_fn(logits[i], targets[i], self.anchors[i])
+        losses = single_loss_fn(logits[i], targets[i], self.anchors[i] / (2**(i+3)))  # Update(2023.12.27): wh relative to cell
+        # losses = single_loss_test_fn(logits[i], targets[i], self.anchors[i])
         lbox += losses[0]
         lobj += losses[1] * self.balance_obj[i]
         lcls += losses[2]
@@ -107,6 +112,12 @@ class ComputeLoss:
     else:
       loss, (_, *metrics) = loss_fn(state.params)
     return state, (loss, *metrics)
+  
+
+  @partial(jax.jit, static_argnums=0)
+  def build_target_test(self, p: List[jnp.ndarray], box: jnp.ndarray, nb: int):
+    target = [jnp.zeros((*p[i].shape[:3],6)) for i in range(3)]
+    return target
 
   @partial(jax.jit, static_argnums=0)
   def build_target(self, p: List[jnp.ndarray], box: jnp.ndarray, nb: int):
@@ -137,7 +148,7 @@ class ComputeLoss:
         cs = (self.offset + b[:2] / s).astype(jnp.int32)  # center in cells, shape=(5,2)
         for c in cs:  # add target to near cell
           for k in range(3):  # diff anchor in current scale
-            bc = jnp.r_[b[:2]/s - c.astype(jnp.float32), b[2:4]]
+            bc = jnp.r_[b[:2]/s - c.astype(jnp.float32), b[2:4]/s]  # Update 2023.12.27: wh should relative to cell
             target[j] = jax.lax.cond(
               flag[j,k], update_fn, lambda x: x[0], (target[j], k, c, bc)
             )
@@ -160,31 +171,7 @@ class ComputeLoss:
       Since the output shape of jax must be static. max_size is the maximum of the targets.
       max_size = max_num_box * 3(anchor) * 3(offset)
     """
-    size = self.max_num_box * 3 * 5  # 5 is max number of offset
-    idxs = [jnp.full((size, 4), self.batch_size) for _ in range(3)]  # full with batch_size after unique idxs, the full values are last
-    targets = [jnp.zeros((size, 6)) for _ in range(3)]
-    def loop_i_fn(i, target):  # box[i]
-      b, cls = box[i, :4], box[i, 4]
-      rate = b[None,None,2:4] / self.anchors  # anchors.shape=(3,3,2)
-      flag = jnp.maximum(rate, 1.0 / rate).max(-1) < self.aspect_ratio_thre  # shape=(3,3)
-
-      def update_fn(value):
-        t, k, c, bc = value
-        t = t.at[k,c[1],c[0]].set(jnp.r_[bc, 1, cls])
-        return t
-
-      for j in range(3):  # diff scale
-        s = 2 ** (j+3)
-        cs = (self.offset + b[:2] / s).astype(jnp.int32)  # center in cells, shape=(5,2)
-        for c in cs:  # add target to near cell
-          for k in range(3):  # diff anchor in current scale
-            bc = jnp.r_[b[:2]/s - c.astype(jnp.float32), b[2:4]]
-            target[j] = jax.lax.cond(
-              flag[j,k], update_fn, lambda x: x[0], (target[j], k, c, bc)
-            )
-      return target
-    target = jax.lax.fori_loop(0, nb, loop_i_fn, target)
-    return target
+    pass
 
 def cell2pixel(xy, scale):
   """

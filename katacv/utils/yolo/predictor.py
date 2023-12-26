@@ -40,8 +40,10 @@ class BasePredictor:
       self.iout = jnp.array([self.iout,])
     self.reset()
   
-  def reset(self):
+  def reset(self, state: train_state.TrainState = None):
     self.pbox, self.tcls, self.tp = [], [], []
+    if state is not None:
+      self.state = state
   
   def update(self, x, tbox=None, tnum=None, nms_iou=0.65, nms_conf=0.001):
     """
