@@ -43,7 +43,7 @@ class BasePredictor:
   def reset(self):
     self.pbox, self.tcls, self.tp = [], [], []
   
-  def update(self, x, tbox=None, tnum=None, nms_iou=0.6, nms_conf=0.001):
+  def update(self, x, tbox=None, tnum=None, nms_iou=0.65, nms_conf=0.001):
     """
     Update the prediction variables.
 
