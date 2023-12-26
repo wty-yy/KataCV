@@ -14,6 +14,8 @@ Fix bugs:
 4. Update self.state in predictor for evaluating metrics in-time [must pass new state].
 2023/12/23: Use 30 batch size, 97% GPU memory
 2023/12/25: Training 79 epochs found no weight decay and gradient norm clip (max_norm=10.0)!
+2023/12/26: Update nms iou_thre=0.65, use IOU metrics (old: DIOU),
+  add more buffer `max_num_box*30` to nms (old: `max_num_box*9`)
 '''
 import sys, os
 sys.path.append(os.getcwd())
