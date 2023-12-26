@@ -6,7 +6,13 @@
 @Version : 1.0
 @Blog    : https://wty-yy.space/
 @Desc    : 
-2023/12/22: Start training on my 4080.
+2023/12/22: Start training on my RTX4080.
+Fix bugs:
+1. Calculating mean loss should use mask.sum() as denominator.
+2. Forget stopping gradient when calculating object loss.
+3. Fix the prediction function for confidence calculating.
+4. Update self.state in predictor for evaluating metrics in-time [must pass new state].
+2023/12/23: Use 30 batch size, 97% GPU memory
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -56,7 +62,8 @@ if __name__ == '__main__':
   ### Train and evaluate ###
   start_time, global_step = time.time(), 0
   if args.train:
-    for epoch in range(state.step//len(train_ds)+1, args.total_epochs+1):
+    # for epoch in range(state.step//len(train_ds)+1, args.total_epochs+1):
+    for epoch in range(args.load_id+1, args.total_epochs+1):
       print(f"epoch: {epoch}/{args.total_epochs}")
       print("training...")
       logs.reset()
@@ -64,7 +71,7 @@ if __name__ == '__main__':
       for x, tbox, tnum in bar:  # Normalize image x !
         x, tbox, tnum = x.numpy().astype(np.float32) / 255.0, tbox.numpy(), tnum.numpy()
         global_step += 1
-        state, metrics = compute_loss.train_step(state, x, tbox, tnum, train=True)
+        state, metrics = compute_loss.step(state, x, tbox, tnum, train=True)
         logs.update(
           [
             'loss_train', 'loss_box_train', 'loss_obj_train', 'loss_cls_train',
@@ -86,9 +93,15 @@ if __name__ == '__main__':
           logs.reset()
       print("validating...")
       logs.reset()
+      predictor.reset(state=state)
       for x, tbox, tnum in tqdm(val_ds):
         x, tbox, tnum = x.numpy().astype(np.float32) / 255.0, tbox.numpy(), tnum.numpy()
         predictor.update(x, tbox, tnum)
+        _, metrics = compute_loss.step(state, x, tbox, tnum, train=False)
+        logs.update(
+          ['loss_val', 'loss_box_val', 'loss_obj_val', 'loss_cls_val'],
+          metrics
+        )
       p50, r50, ap50, ap75, map = predictor.p_r_ap50_ap75_map()
       for name, val in zip(['P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val'], [p50, r50, ap50, ap75, map]):
         print(f"{name}={val:.4f}", end=' ')

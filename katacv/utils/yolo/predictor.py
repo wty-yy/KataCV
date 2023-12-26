@@ -22,7 +22,6 @@ class BasePredictor:
   Must define predict method in subclass.
 
   Args:
-    args: YOLO model argmentations.
     state: YOLO model state.
     pbox: Predicted bounding boxes. List[box.shape=(M,6), elem=(x,y,w,h,conf,cls)]
     tcls: Class of target bounding boxes. List[cls.shape=(M',)]
@@ -34,7 +33,8 @@ class BasePredictor:
   tp: List[np.ndarray]  # np.bool_
   iout: jax.Array
 
-  def __init__(self, iout=None):
+  def __init__(self, state: train_state.TrainState, iout=None):
+    self.state = state
     self.iout = jnp.linspace(0.5, 0.95, 10) if iout is None else iout
     if type(self.iout) == float:
       self.iout = jnp.array([self.iout,])
@@ -58,13 +58,13 @@ class BasePredictor:
     """
     if x.ndim == 3: x = x[None,...]
     if tbox is None and tnum is None:
-      pbox, pnum = jax.device_get(self.pred_and_nms(x, nms_iou, nms_conf))
+      pbox, pnum = jax.device_get(self.pred_and_nms(self.state, x, nms_iou, nms_conf))
     else:
       assert(tbox is not None and tnum is not None)
       if tbox.ndim == 2: tbox = tbox[None,...]
       if type(tnum) == int: tnum = jnp.array((tnum,))
       pbox, pnum, tp = jax.device_get(self.pred_and_nms_and_tp(
-        x, nms_iou, nms_conf, tbox, tnum
+        self.state, x, nms_iou, nms_conf, tbox, tnum
       ))
     for i in range(x.shape[0]):
       self.pbox.append(pbox[i][:pnum[i]])
@@ -106,12 +106,13 @@ class BasePredictor:
     p50, r50, ap50, ap75, map = p50.mean(), r50.mean(), ap50.mean(), ap75.mean(), ap.mean()
     return p50, r50, ap50, ap75, map
 
-  def predict(self, x: jax.Array):
+  def predict(self, state: train_state.TrainState, x: jax.Array):
     """
     Subclass implement.
     Don't forget: `@partial(jax.jit, static_argnums=0)`
 
     Args:
+      state: TrainState `self.state`
       x: Input image. [shape=(N,H,W,3)]
     Return:
       y: All predict box. [shape=(N,num_pbox,6), elem:(x,y,w,h,conf,cls)]
@@ -120,10 +121,10 @@ class BasePredictor:
 
   @partial(jax.jit, static_argnums=[0,2,3])
   def pred_and_nms(
-    self, x: jax.Array,
+    self, state: train_state.TrainState, x: jax.Array,
     iou_threshold: float, conf_threshold: float
   ):
-    pred = self.predict(x)
+    pred = self.predict(state, x)
     pbox, pnum = jax.vmap(
       nms, in_axes=[0, None, None], out_axes=0
     )(pred, iou_threshold, conf_threshold)
@@ -131,11 +132,11 @@ class BasePredictor:
   
   @partial(jax.jit, static_argnums=0)
   def pred_and_nms_and_tp(
-    self, x: jax.Array,
+    self, state: train_state.TrainState, x: jax.Array,
     iou_threshold: float, conf_threshold: float,
     tbox: jax.Array, tnum: jax.Array
   ):
-    pbox, pnum = self.pred_and_nms(x, iou_threshold, conf_threshold)
+    pbox, pnum = self.pred_and_nms(state, x, iou_threshold, conf_threshold)
     pbox, tp = jax.vmap(self.compute_tp, in_axes=[0,0,0,0,None], out_axes=0)(
       pbox, pnum, tbox, tnum, self.iout
     )
