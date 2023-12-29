@@ -81,13 +81,14 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   parser.add_argument("--coef-cls", type=float, default=cfg.coef_cls,
     help="the coef of the classification loss")
   args = parser.get_args(input_args)
-  args.steps_per_epoch = cfg.train_ds_size // args.batch_size
+  # args.steps_per_epoch = cfg.train_ds_size // args.batch_size
   args.input_shape = (args.batch_size, *args.image_shape)
 
   # Update 2023/12/29: Accumulate the gradient to nominal batch size.
   nbc = 64  # nominal batch size
   args.accumulate = max(round(nbc / args.batch_size), 1)
   args.weight_decay *= args.batch_size * args.accumulate / nbc
+  args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
 
   args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
 
