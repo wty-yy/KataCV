@@ -70,8 +70,10 @@ class BasePredictor:
       ))
     for i in range(x.shape[0]):
       self.pbox.append(pbox[i][:pnum[i]])
-      self.tcls.append(tbox[i][:tnum[i],4].astype(np.int32))
-      self.tp.append(tp[i][:pnum[i]])
+      if tbox is not None:
+        self.tcls.append(tbox[i][:tnum[i],4].astype(np.int32))
+        self.tp.append(tp[i][:pnum[i]])
+    return pbox
   
   def ap_per_class(self):
     """
@@ -121,7 +123,7 @@ class BasePredictor:
     """
     pass
 
-  @partial(jax.jit, static_argnums=[0,2,3])
+  @partial(jax.jit, static_argnums=[0,3,4])
   def pred_and_nms(
     self, state: train_state.TrainState, x: jax.Array,
     iou_threshold: float, conf_threshold: float
