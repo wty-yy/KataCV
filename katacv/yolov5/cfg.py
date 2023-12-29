@@ -36,18 +36,21 @@ anchors = jnp.array([
 
 ### Training ###
 if dataset_name == 'COCO':
-  batch_size = 28
+  batch_size = 16
   total_epochs = 300
 if dataset_name == 'PASCAL VOC':
-  batch_size = 28
+  batch_size = 16
   total_epochs = 100
 coef_box = 0.05
 coef_obj = 1.0
 coef_cls = 0.5
-coef_batch = batch_size / 64
-learning_rate_init = 0.01 * coef_batch
-learning_rate_final = 1e-4 * coef_batch
-weight_decay = 5e-4 * coef_batch
+# coef_batch = batch_size / 64
+# learning_rate_init = 0.01 * coef_batch
+# learning_rate_final = 1e-4 * coef_batch
+# weight_decay = 5e-4 * coef_batch
+learning_rate_init = 0.01
+learning_rate_final = 1e-4
+weight_decay = 5e-4
 warmup_epochs = 3
 momentum = 0.937  # if optimizer is SGD
 
