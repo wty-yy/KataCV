@@ -161,7 +161,7 @@ def iou(
     outer_h = jnp.maximum(max1[...,0],max2[...,0]) - jnp.minimum(min1[...,0],min2[...,0])
     outer_w = jnp.maximum(max1[...,1],max2[...,1]) - jnp.minimum(min1[...,1],min2[...,1])
     center_dist = ((box1[...,:2]-box2[...,:2])**2).sum(-1)
-    diagonal_dist = outer_h**2 + outer_w**2
+    diagonal_dist = jax.lax.stop_gradient(outer_h**2 + outer_w**2)  # Update (2023/12/29): Stop diagonal gradient.
     result_diou = result_iou - center_dist / (diagonal_dist + EPS)  # DIOU
     if format == 'diou':
         ret = result_diou
