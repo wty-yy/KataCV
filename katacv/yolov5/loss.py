@@ -82,9 +82,6 @@ class ComputeLoss:
       # print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")
       return lbox, lobj, lcls
     
-    def single_loss_test_fn(p, t, anchors):
-      return 0.0, 0.0, 0.0
-    
     def loss_fn(params):
       logits, updates = state.apply_fn(
         {'params': params, 'batch_stats': state.batch_stats},
@@ -113,12 +110,6 @@ class ComputeLoss:
       loss, (_, *metrics) = loss_fn(state.params)
     return state, (loss, *metrics)
   
-
-  @partial(jax.jit, static_argnums=0)
-  def build_target_test(self, p: List[jnp.ndarray], box: jnp.ndarray, nb: int):
-    target = [jnp.zeros((*p[i].shape[:3],6)) for i in range(3)]
-    return target
-
   @partial(jax.jit, static_argnums=0)
   def build_target(self, p: List[jnp.ndarray], box: jnp.ndarray, nb: int):
     """
@@ -159,7 +150,7 @@ class ComputeLoss:
   @partial(jax.jit, static_argnums=0)
   def build_target_idxs(self, box: jnp.ndarray, nb: int):
     """
-    Build target with idxs for one sample.
+    (Deprecated) Build target with idxs for one sample.
     Args:
       box: Target boxes with YOLO format. [shape=(M,5)]
       nb: Number of the target boxes. [int]

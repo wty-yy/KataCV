@@ -17,6 +17,8 @@ Fix bugs:
 2023/12/26: Update nms iou_thre=0.65, use IOU metrics (old: DIOU),
   add more buffer `max_num_box*30` to nms (old: `max_num_box*9`)
 2023/12/27: Update CIOU: `wh` relative to cell.
+2023/12/29: Found mAP, AP50, AP75 jump huge after 40 epochs.
+  Try to stop gradient of DIOU diagonal distance.
 '''
 import sys, os
 sys.path.append(os.getcwd())
