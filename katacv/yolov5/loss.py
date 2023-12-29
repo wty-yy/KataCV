@@ -2,6 +2,7 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.detection import iou
 from katacv.yolov5.parser import YOLOv5Args
+from katacv.yolov5.train_state import TrainState, accumulate_grads
 
 def BCE(logits, y, mask):
   return -(mask * (
@@ -22,9 +23,6 @@ class ComputeLoss:
     self.coef_box = args.coef_box
     self.coef_obj = args.coef_obj
     self.coef_cls = args.coef_cls
-    self.max_num_box = 200  # or args.max_num_box
-    # self.max_num_target = args.max_num_box * 3 * 3  # 3 anchors, 3 offset in each scale
-    self.max_num_target = 200 * 3 * 3  # 3 anchors, 3 offset in each scale
     self.balance_obj = [4.0, 1.0, 0.4]
     self.aspect_ratio_thre = 4.0
     self.offset = jnp.array(
@@ -104,7 +102,7 @@ class ComputeLoss:
       return loss, (updates, lbox, lobj, lcls)
     if train:
       (loss, (updates, *metrics)), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params)
-      state = state.apply_gradients(grads=grads)
+      state = accumulate_grads(state, grads)
       state = state.replace(batch_stats=updates['batch_stats'])
     else:
       loss, (_, *metrics) = loss_fn(state.params)

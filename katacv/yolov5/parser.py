@@ -19,6 +19,7 @@ class YOLOv5Args(CVArgs):
   anchors: List[Tuple[int, int]]
   path_darknet_weights: Path
   ### Training ###
+  accumulate: int  # accumulate the gradient
   warmup_epochs: int
   steps_per_epoch: int
   learning_rate_final: float
@@ -80,9 +81,16 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   parser.add_argument("--coef-cls", type=float, default=cfg.coef_cls,
     help="the coef of the classification loss")
   args = parser.get_args(input_args)
-  args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch_{args.batch_size}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
   args.steps_per_epoch = cfg.train_ds_size // args.batch_size
   args.input_shape = (args.batch_size, *args.image_shape)
+
+  # Update 2023/12/29: Accumulate the gradient to nominal batch size.
+  nbc = 64  # nominal batch size
+  args.accumulate = max(round(nbc / args.batch_size), 1)
+  args.weight_decay *= args.batch_size * args.accumulate / nbc
+
+  args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
+
   if no_writer: return args
   
   writer = parser.get_writer(args)

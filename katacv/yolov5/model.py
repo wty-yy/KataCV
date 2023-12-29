@@ -13,6 +13,7 @@ from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.yolov5.new_csp_darknet53 import CSPDarkNet, ConvBlock, CSP
 from katacv.yolov5.parser import YOLOv5Args
+from katacv.yolov5.train_state import TrainState, zeros_grads
 
 class SPP(nn.Module):  # Spatial Pyramid Pooling(F), same result but faster x2.5
   conv: nn.Module
@@ -85,9 +86,6 @@ class YOLOv5(nn.Module):
     outputs = PANet(num_classes=self.num_classes)(features, train)
     return outputs
 
-class TrainState(train_state.TrainState):
-  batch_stats: dict
-
 def get_learning_rate_fn(args: YOLOv5Args):
     """
     `args.learning_rate`: the target warming up learning rate.
@@ -120,15 +118,20 @@ def get_state(args: YOLOv5Args, use_init=True, verbose=False):
     variables = model.init(key, jnp.empty(args.input_shape), train=False)
   else:
     variables = {}
-  return TrainState.create(
+  state = TrainState.create(
     apply_fn=model.apply,
     params=variables.get('params'),
     tx=optax.chain(
       optax.clip_by_global_norm(max_norm=10.0),
       optax.sgd(learning_rate=args.learning_rate_fn, momentum=args.momentum, nesterov=True)
     ),
-    batch_stats=variables.get('batch_stats')
+    batch_stats=variables.get('batch_stats'),
+    grads=variables.get('params'),
+    accumulate=args.accumulate,
+    acc_count=0
   )
+  state = zeros_grads(state)
+  return state
 
 if __name__ == '__main__':
   from katacv.yolov5.parser import get_args_and_writer
