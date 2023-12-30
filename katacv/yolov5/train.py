@@ -20,6 +20,8 @@ Fix bugs:
 2023/12/29: Found mAP, AP50, AP75 jump huge after 40 epochs.
   1. Add stopping gradient of DIOU diagonal distance.
   2. Add accumulate gradient to nominal batch size 64. (start train 16 batch size)
+2023/12/30: FIX BUG:
+  1. Fix weight decay coef size for accumulating gradient.
 '''
 import sys, os
 sys.path.append(os.getcwd())

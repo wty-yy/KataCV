@@ -87,7 +87,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   # Update 2023/12/29: Accumulate the gradient to nominal batch size.
   nbc = 64  # nominal batch size
   args.accumulate = max(round(nbc / args.batch_size), 1)
-  args.weight_decay *= args.batch_size * args.accumulate / nbc
+  args.weight_decay *= 1 / args.accumulate
   args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
 
   args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
