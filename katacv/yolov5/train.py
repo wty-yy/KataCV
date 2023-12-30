@@ -18,7 +18,10 @@ Fix bugs:
   add more buffer `max_num_box*30` to nms (old: `max_num_box*9`)
 2023/12/27: Update CIOU: `wh` relative to cell.
 2023/12/29: Found mAP, AP50, AP75 jump huge after 40 epochs.
-  Try to stop gradient of DIOU diagonal distance.
+  1. Add stopping gradient of DIOU diagonal distance.
+  2. Add accumulate gradient to nominal batch size 64. (start train 16 batch size)
+2023/12/30: FIX BUG:
+  1. Fix weight decay coef size for accumulating gradient.
 '''
 import sys, os
 sys.path.append(os.getcwd())

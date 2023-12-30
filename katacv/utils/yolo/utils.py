@@ -102,14 +102,22 @@ def transform_pad(img, target_shape):
 def show_box(img, box, draw_center_point=False, verbose=True, format='yolo'):
   from katacv.utils.detection import plot_box_PIL, build_label2colors
   from katacv.utils.coco.constant import label2name
+  img = img.copy()
   if isinstance(img, np.ndarray):
     if img.max() <= 1.0: img *= 255
     img = Image.fromarray(img.astype('uint8'))
+  label_idx, conf_idx = (4, None) if box.shape[1] == 5 else (5, 4)
   if len(box):
-    label2color = build_label2colors(box[:,4])
+    label2color = build_label2colors(box[:,label_idx])
   for b in box:
-    label = int(b[4])
-    img = plot_box_PIL(img, b[:4], text=label2name[label], box_color=label2color[label], format=format, draw_center_point=draw_center_point)
+    conf = float(b[conf_idx]) if conf_idx != None else None
+    label = int(b[label_idx])
+    img = plot_box_PIL(
+      img, b[:4],
+      text=f"{label2name[label]}{f' {conf:.3f}' if conf else ''}",
+      box_color=label2color[label],
+      format=format, draw_center_point=draw_center_point
+    )
   if verbose:
     img.show()
   return img
