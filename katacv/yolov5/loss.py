@@ -10,10 +10,6 @@ def BCE(logits, y, mask):
     (1-y) * jax.nn.log_sigmoid(-logits)
   )).sum() / mask.sum() / y.shape[-1]  # mean
 
-# def CIOU(box1, box2, mask):
-#   fn = partial(iou, format='ciou')
-#   return (mask * (1 - jax.vmap(fn, (0, 0))(box1, box2))).sum() / mask.sum()
-
 class ComputeLoss:
   def __init__(self, args: YOLOv5Args):
     self.batch_size = args.batch_size
@@ -53,7 +49,6 @@ class ComputeLoss:
       mask = t[..., 4:5] == 1  # positive mask
       xy = (jax.nn.sigmoid(p[...,:2]) - 0.5) * 2.0 + 0.5
       wh = (jax.nn.sigmoid(p[...,2:4]) * 2) ** 2 * anchors.reshape(1,3,1,1,2)
-      ### 43 mins each epoch (imagesize=640*640, batchsize=28, 4224 [44:41<00:00,  1.58it/s] -----------------
       ious = iou(jnp.concatenate([xy, wh], -1), t[..., :4], format='ciou', keepdim=True)
       lbox = (mask * (1 - ious)).sum() / mask.sum()
       ious = jax.lax.stop_gradient(ious)  # Don't forget stop gradient after box loss
@@ -62,35 +57,17 @@ class ComputeLoss:
       lobj = BCE(p[..., 4:5], tobj, jnp.ones_like(mask))
       hot = jax.nn.one_hot(t[..., 5], self.nc)
       lcls = BCE(p[..., 5:], hot, mask)
-      ### ----------------------------------------------------------------------------------------------------
-      # Used idxs optimize: 2023.12.26. 01:24, optimize to 1.70 it/s -----------------------------------------
-      # idxs = jnp.argwhere(t[...,4], size=self.max_num_target*self.batch_size, fill_value=-1).transpose()
-      # nt = (t[...,4] != 0).sum()  # number of target box
-      # st = t[*idxs, :4]  # subset target box
-      # sp = jnp.concatenate([xy, wh], -1)[*idxs]  # subset predict
-      # ious = iou(sp, st, format='ciou')
-      # ious *= (idxs[0] != -1)  # clean fill_value
-      # lbox = (1-ious).sum() / nt
-      # ious = jax.lax.stop_gradient(ious).clip(0.0)  # Don't forget stop gradient after box loss
-      # t = t.at[*idxs, 4].set(ious)
-      # lobj = BCE(p[...,4:5], t[...,4:5], jnp.ones_like(mask))
-      # st = jax.nn.one_hot(t[*idxs, 5], self.nc)
-      # lcls = BCE(p[*idxs, 5:], st, (idxs[0] != -1)[:,None])
-      ### ----------------------------------------------------------------------------------------------------
-      # print(f"ious.shape={ious.shape}, mask.shape={mask.shape}")
       return lbox, lobj, lcls
     
     def loss_fn(params):
       logits, updates = state.apply_fn(
         {'params': params, 'batch_stats': state.batch_stats},
-        x, train=True, mutable=['batch_stats']
+        x, train=train, mutable=['batch_stats']  # Update (2024.1.1): train=train
       )
-      # targets = jax.vmap(self.build_target_test)(logits, box, nb)
       targets = jax.vmap(self.build_target)(logits, box, nb)
       lbox, lobj, lcls = 0, 0, 0
       for i in range(3):
         losses = single_loss_fn(logits[i], targets[i], self.anchors[i] / (2**(i+3)))  # Update(2023.12.27): wh relative to cell
-        # losses = single_loss_test_fn(logits[i], targets[i], self.anchors[i])
         lbox += losses[0]
         lobj += losses[1] * self.balance_obj[i]
         lcls += losses[2]

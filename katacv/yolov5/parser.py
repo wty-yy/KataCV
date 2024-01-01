@@ -17,6 +17,7 @@ class YOLOv5Args(CVArgs):
   fliplr: float  # flip left-right (probability)
   ### Model ###
   anchors: List[Tuple[int, int]]
+  pretrain_backbone: bool  # whether freeze the BN statistic in backbone
   path_darknet_weights: Path
   ### Training ###
   accumulate: int  # accumulate the gradient
@@ -35,7 +36,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   parser.add_argument("--anchors", nargs='+', default=cfg.anchors,
     help="the anchors bounding boxes")
   parser.add_argument("--path-darknet-weights", type=cvt2Path, default=cfg.path_darknet_weights,
-    help="the path of the CSP-DarkNet53 weights")
+    help="the path of the CSP-DarkNet53 weights. Pass `None` then starting from scratch.")
   ### Dataset ###
   parser.add_argument("--path-dataset", type=cvt2Path, default=cfg.path_dataset,
     help="the path of the dataset")
@@ -89,6 +90,13 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   args.accumulate = max(round(nbc / args.batch_size), 1)
   args.weight_decay *= 1 / args.accumulate
   args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
+
+  args.pretrain_backbone = args.path_darknet_weights is not None
+  if args.pretrain_backbone:  # Update (2024.1.1): https://arxiv.org/pdf/1906.07155.pdf Section 5.2
+    args.learning_rate *= 2.0
+    args.learning_rate_final *= 2.0
+    args.total_epochs /= 2.0
+
 
   args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
 

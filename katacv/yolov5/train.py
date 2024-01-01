@@ -22,6 +22,11 @@ Fix bugs:
   2. Add accumulate gradient to nominal batch size 64. (start train 16 batch size)
 2023/12/30: FIX BUG:
   1. Fix weight decay coef size for accumulating gradient.
+2024/1/1: FIX BUG:
+  1. Loss calculate `train=train`. (Huge different result whether turn on the batch normalize)
+  2. Check paper https://arxiv.org/pdf/1906.07155.pdf section 5.2,\ 
+    when use pretrain backbone model, we must freeze BN statistic in backbone model,\ 
+    also we can use 2x learning rate.
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -45,14 +50,13 @@ if __name__ == '__main__':
   from katacv.utils.model_weights import load_weights
   if args.load_id > 0:
     state = load_weights(state, args)
+  elif args.pretrain_backbone:
+    darknet_weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet_weights))
+    state.params['CSPDarkNet_0'] = darknet_weights['params']['darknet']
+    state.batch_stats['CSPDarkNet_0'] = darknet_weights['batch_stats']['darknet']
+    print(f"Successfully load CSP-DarkNet53 from '{str(args.path_darknet_weights)}'")
   else:
-    try:
-      darknet_weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet_weights))
-      state.params['CSPDarkNet_0'] = darknet_weights['params']['darknet']
-      state.batch_stats['CSPDarkNet_0'] = darknet_weights['batch_stats']['darknet']
-      print(f"Successfully load CSP-DarkNet53 from '{str(args.path_darknet_weights)}'")
-    except:
-      print("Don't find pretrained backbone darknet weight, start from scratch.")
+    print("Don't use pretrained backbone darknet weight, start from scratch.")
 
   ### Save config ###
   from katacv.utils.model_weights import SaveWeightsManager

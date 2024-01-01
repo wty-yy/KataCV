@@ -3,7 +3,10 @@ from pathlib import Path
 from tensorboardX import SummaryWriter
 from typing import Sequence
 
-def cvt2Path(x): return Path(x)
+def cvt2Path(x):
+    if x in ['None', 'none']:
+        return None
+    return Path(x)
 def str2bool(x): return x in ['yes', 'y', 'True', '1']
 
 """
