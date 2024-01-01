@@ -79,10 +79,12 @@ class PANet(nn.Module):  # Path Aggregation Network
 
 class YOLOv5(nn.Module):
   num_classes: int
+  pretrain_backbone: bool
 
   @nn.compact
   def __call__(self, x, train: bool):
-    features = CSPDarkNet()(x, train)
+    # Update (2024.1.1) Freeze backbone BN statistic: https://arxiv.org/pdf/1906.07155.pdf Section 5.2
+    features = CSPDarkNet()(x, False if self.pretrain_backbone else train)
     outputs = PANet(num_classes=self.num_classes)(features, train)
     return outputs
 
@@ -111,7 +113,7 @@ def get_learning_rate_fn(args: YOLOv5Args):
 
 def get_state(args: YOLOv5Args, use_init=True, verbose=False):
   args.learning_rate_fn = get_learning_rate_fn(args)
-  model = YOLOv5(args.num_classes)
+  model = YOLOv5(args.num_classes, args.pretrain_backbone)
   key = jax.random.PRNGKey(args.seed)
   if verbose: print(model.tabulate(key, jnp.empty(args.input_shape), train=False))
   if use_init:
