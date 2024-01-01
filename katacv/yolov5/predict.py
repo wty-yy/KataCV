@@ -11,9 +11,10 @@ class Predictor(BasePredictor):
 
   @partial(jax.jit, static_argnums=0)
   def predict(self, state: train_state.TrainState, x: jnp.ndarray):
-    logits = state.apply_fn(
+    logits, updates = state.apply_fn(
       {'params': state.params, 'batch_stats': state.batch_stats},
-      x, train=False
+      x, train=False, mutable=['batch_stats']
+      # x, train=True, mutable=['batch_stats']  # Update: Must use train BN, if no freeze backbone BN statistic
     )
     y, batch_size = [], x.shape[0]
     for i in range(3):

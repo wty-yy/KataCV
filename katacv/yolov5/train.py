@@ -46,10 +46,13 @@ if __name__ == '__main__':
   if args.load_id > 0:
     state = load_weights(state, args)
   else:
-    darknet_weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet_weights))
-    state.params['CSPDarkNet_0'] = darknet_weights['params']['darknet']
-    state.batch_stats['CSPDarkNet_0'] = darknet_weights['batch_stats']['darknet']
-    print(f"Successfully load CSP-DarkNet53 from '{str(args.path_darknet_weights)}'")
+    try:
+      darknet_weights = ocp.PyTreeCheckpointer().restore(str(args.path_darknet_weights))
+      state.params['CSPDarkNet_0'] = darknet_weights['params']['darknet']
+      state.batch_stats['CSPDarkNet_0'] = darknet_weights['batch_stats']['darknet']
+      print(f"Successfully load CSP-DarkNet53 from '{str(args.path_darknet_weights)}'")
+    except:
+      print("Don't find pretrained backbone darknet weight, start from scratch.")
 
   ### Save config ###
   from katacv.utils.model_weights import SaveWeightsManager

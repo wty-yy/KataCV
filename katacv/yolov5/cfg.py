@@ -36,10 +36,10 @@ anchors = jnp.array([
 
 ### Training ###
 if dataset_name == 'COCO':
-  batch_size = 16
+  batch_size = 32
   total_epochs = 300
 if dataset_name == 'PASCAL VOC':
-  batch_size = 16
+  batch_size = 32
   total_epochs = 100
 coef_box = 0.05
 coef_obj = 1.0
