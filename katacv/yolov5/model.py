@@ -99,14 +99,21 @@ def get_learning_rate_fn(args: YOLOv5Args):
         end_value=args.learning_rate,
         transition_steps=args.warmup_epochs * args.steps_per_epoch
     )
-    cosine_epoch = args.total_epochs - args.warmup_epochs
-    cosine_fn = optax.cosine_decay_schedule(
+    second_epoch = args.total_epochs - args.warmup_epochs
+    if args.use_cosine_decay:
+      second_fn = optax.cosine_decay_schedule(
+          init_value=args.learning_rate,
+          decay_steps=second_epoch * args.steps_per_epoch,
+          alpha=args.learning_rate_final / args.learning_rate
+      )
+    else:
+      second_fn = optax.linear_schedule(
         init_value=args.learning_rate,
-        decay_steps=cosine_epoch * args.steps_per_epoch,
-        alpha=args.learning_rate_final / args.learning_rate
-    )
+        end_value=args.learning_rate_final,
+        transition_steps=second_epoch * args.steps_per_epoch
+      )
     schedule_fn = optax.join_schedules(
-        schedules=[warmup_fn, cosine_fn],
+        schedules=[warmup_fn, second_fn],
         boundaries=[args.warmup_epochs * args.steps_per_epoch]
     )
     return schedule_fn

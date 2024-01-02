@@ -21,6 +21,7 @@ class YOLOv5Args(CVArgs):
   path_darknet_weights: Path
   ### Training ###
   accumulate: int  # accumulate the gradient
+  use_cosine_decay: bool  # use cosine learning rate decay, else linear decay
   warmup_epochs: int
   steps_per_epoch: int
   learning_rate_final: float
@@ -83,6 +84,8 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
     help="the coef of the classification loss")
   parser.add_argument("--accumulate", type=str2bool, default=True,
     help="if taggled, accumulate the loss to nominal batch size 64.")
+  parser.add_argument("--use-cosine-decay", type=str2bool, default=True,
+    help="if taggled, cosine learning rate decay will be used, else use the linear learning rate decay.")
   args = parser.get_args(input_args)
   # args.steps_per_epoch = cfg.train_ds_size // args.batch_size
   args.input_shape = (args.batch_size, *args.image_shape)
