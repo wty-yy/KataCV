@@ -97,7 +97,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
     args.accumulate = 1
     args.steps_per_epoch = cfg.train_ds_size // args.batch_size
 
-  # args.pretrain_backbone = args.path_darknet_weights is not None
+  args.pretrain_backbone = args.path_darknet_weights is not None
   # if args.pretrain_backbone:  # Update (2024.1.1): https://arxiv.org/pdf/1906.07155.pdf Section 5.2
   #   args.learning_rate *= 2.0
   #   args.learning_rate_final *= 2.0
@@ -106,7 +106,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
 
   args.run_name = (
     f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}"
-    f"__batch{'(a)' if args.accumulate else ''}_{int(args.batch_size*args.accumulate)}"
+    f"__batch{'(a)' if args.accumulate > 1 else ''}_{int(args.batch_size*args.accumulate)}"
     f"__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
   )
   if no_writer: return args
