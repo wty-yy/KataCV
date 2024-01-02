@@ -106,7 +106,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
 
   args.run_name = (
     f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}"
-    f"__batch{'(a)' if args.accumulate else ''}_{int(args.batch_size*args.accumulate)}"
+    f"__batch{'(a)' if args.accumulate > 1 else ''}_{int(args.batch_size*args.accumulate)}"
     f"__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
   )
   if no_writer: return args
