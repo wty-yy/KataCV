@@ -95,7 +95,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   if args.pretrain_backbone:  # Update (2024.1.1): https://arxiv.org/pdf/1906.07155.pdf Section 5.2
     args.learning_rate *= 2.0
     args.learning_rate_final *= 2.0
-    args.total_epochs /= 2.0
+    args.total_epochs = args.total_epochs // 2
 
 
   args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
