@@ -81,15 +81,20 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
     help="the coef of the object loss")
   parser.add_argument("--coef-cls", type=float, default=cfg.coef_cls,
     help="the coef of the classification loss")
+  parser.add_argument("--accumulate", type=str2bool, default=True,
+    help="if taggled, accumulate the loss to nominal batch size 64.")
   args = parser.get_args(input_args)
   # args.steps_per_epoch = cfg.train_ds_size // args.batch_size
   args.input_shape = (args.batch_size, *args.image_shape)
 
   # Update 2023/12/29: Accumulate the gradient to nominal batch size.
   nbc = 64  # nominal batch size
-  args.accumulate = max(round(nbc / args.batch_size), 1)
-  args.weight_decay *= 1 / args.accumulate
-  args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
+  if args.accumulate:
+    args.accumulate = max(round(nbc / args.batch_size), 1)
+    args.weight_decay *= 1 / args.accumulate
+    args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
+  else:
+    args.accumulate = 1
 
   args.pretrain_backbone = args.path_darknet_weights is not None
   if args.pretrain_backbone:  # Update (2024.1.1): https://arxiv.org/pdf/1906.07155.pdf Section 5.2
@@ -98,8 +103,11 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
     args.total_epochs = args.total_epochs // 2
 
 
-  args.run_name = f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}__batch(a)_{int(args.batch_size*args.accumulate)}__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
-
+  args.run_name = (
+    f"{args.model_name}__load_{args.load_id}__warmup_lr_{args.learning_rate}"
+    f"__batch{'(a)' if args.accumulate else ''}_{int(args.batch_size*args.accumulate)}"
+    f"__{datetime.datetime.now().strftime(r'%Y%m%d_%H%M%S')}"
+  )
   if no_writer: return args
   
   writer = parser.get_writer(args)
