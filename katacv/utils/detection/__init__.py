@@ -220,8 +220,8 @@ def nms_boxes_and_mask_old(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num
     mask = (boxes[:,0] > conf_threshold) & (~jnp.diagonal(jnp.tri(M,k=-1) @ (ious > iou_threshold)).astype('bool'))
     return boxes, mask
 
-@partial(jax.jit, static_argnums=[3,4])
-def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='iou'):
+@partial(jax.jit, static_argnums=[3,4,5])
+def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='iou', nms_multi=30):
   """
   Compute the predicted bounding boxes and the number of bounding boxes.
   
@@ -230,13 +230,14 @@ def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format=
     iou_threshold: The IOU threshold of NMS.
     conf_threshold: The confidence threshold of NMS.
     max_num_box: The maximum number of the bounding boxes.
-    iou_format: THe format of IOU is used in calculating IOU threshold.
+    iou_format: The format of IOU is used in calculating IOU threshold.
+    nms_multi: `max_num_box * num_multi` is the pre box number for iou calculation.
   
   Return:
     box: The bounding boxes after NMS.  [shape=(max_num_box, 6)]
     pnum: The number of the predicted bounding boxes. [int]
   """
-  M = max_num_box * 30  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
+  M = max_num_box * nms_multi  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
   sort_idxs = jnp.argsort(-box[:,4])[:M]  # only consider the first `max_num_box`
   box = box[sort_idxs]
   ious = iou_multiply(box[:,:4], box[:,:4], format=iou_format)

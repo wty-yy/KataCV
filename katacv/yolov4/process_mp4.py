@@ -38,14 +38,14 @@ def main(args):
   processed_frames = []
 
   print("Compile XLA...")
-  from katacv.yolov4.metric import nms_boxes_and_mask
+  from katacv.yolov4.metric import nms_boxes_and_mask_old
   @jax.jit
   def preprocess(image):
     x = jnp.array(image)[None, ...]
     x = (x / np.max(x, axis=(0,1), keepdims=True)).astype(np.float32)
     x = jax.image.resize(x, (1,*state_args.image_shape), method='bilinear')
     pred = predict(state, x, state_args.anchors)[0]
-    pred_bboxes, mask = nms_boxes_and_mask(
+    pred_bboxes, mask = nms_boxes_and_mask_old(
       pred, iou_threshold=0.4, conf_threshold=0.2, iou_format='diou'
     )
     return pred_bboxes, mask

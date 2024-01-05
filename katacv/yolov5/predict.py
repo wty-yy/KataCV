@@ -6,7 +6,7 @@ from katacv.yolov5.parser import YOLOv5Args
 class Predictor(BasePredictor):
   
   def __init__(self, args: YOLOv5Args, state: train_state.TrainState, iout=None, use_bn=True):
-    super().__init__(state, iout)
+    super().__init__(state, iout, args.image_shape)
     self.args = args
     self.use_bn = use_bn
 
