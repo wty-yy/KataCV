@@ -33,9 +33,10 @@ class BasePredictor:
   tp: List[np.ndarray]  # np.bool_
   iout: jax.Array
 
-  def __init__(self, state: train_state.TrainState, iout=None):
+  def __init__(self, state: train_state.TrainState, iout=None, image_shape: Tuple=(640, 640, 3)):
     self.state = state
     self.iout = jnp.linspace(0.5, 0.95, 10) if iout is None else iout
+    self.image_shape = image_shape
     if type(self.iout) == float:
       self.iout = jnp.array([self.iout,])
     self.reset()
@@ -68,12 +69,13 @@ class BasePredictor:
       pbox, pnum, tp = jax.device_get(self.pred_and_nms_and_tp(
         self.state, x, nms_iou, nms_conf, tbox, tnum
       ))
-    for i in range(x.shape[0]):
+    n = x.shape[0]
+    for i in range(n):
       self.pbox.append(pbox[i][:pnum[i]])
       if tbox is not None:
         self.tcls.append(tbox[i][:tnum[i],4].astype(np.int32))
         self.tp.append(tp[i][:pnum[i]])
-    return pbox
+    return self.pbox[-n:]
   
   def ap_per_class(self):
     """
@@ -123,18 +125,28 @@ class BasePredictor:
     """
     pass
 
-  @partial(jax.jit, static_argnums=[0,3,4])
+  @partial(jax.jit, static_argnums=[0])
+  def pred_bounding_check(self, pbox):
+    x1 = jnp.maximum(pbox[...,0] - pbox[...,2] / 2, 0)
+    y1 = jnp.maximum(pbox[...,1] - pbox[...,3] / 2, 0)
+    x2 = jnp.minimum(pbox[...,0] + pbox[...,2] / 2, self.image_shape[1])
+    y2 = jnp.minimum(pbox[...,1] + pbox[...,3] / 2, self.image_shape[0])
+    w, h = x2 - x1, y2 - y1
+    return jnp.concatenate([jnp.stack([x1+w/2, y1+h/2, w, h], -1), pbox[...,4:]], -1)
+
+  @partial(jax.jit, static_argnums=[0,3,4,5])
   def pred_and_nms(
     self, state: train_state.TrainState, x: jax.Array,
-    iou_threshold: float, conf_threshold: float
+    iou_threshold: float, conf_threshold: float, nms_multi: float = 30
   ):
-    pred = self.predict(state, x)
+    pbox = self.predict(state, x)
+    pbox = self.pred_bounding_check(pbox)
     pbox, pnum = jax.vmap(
-      nms, in_axes=[0, None, None], out_axes=0
-    )(pred, iou_threshold, conf_threshold)
+      nms, in_axes=[0, None, None, None], out_axes=0
+    )(pbox, iou_threshold, conf_threshold, nms_multi)
     return pbox, pnum
   
-  @partial(jax.jit, static_argnums=0)
+  @partial(jax.jit, static_argnums=[0,3,4])
   def pred_and_nms_and_tp(
     self, state: train_state.TrainState, x: jax.Array,
     iou_threshold: float, conf_threshold: float,

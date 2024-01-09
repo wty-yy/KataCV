@@ -5,15 +5,16 @@ from katacv.yolov5.parser import YOLOv5Args
 
 class Predictor(BasePredictor):
   
-  def __init__(self, args: YOLOv5Args, state: train_state.TrainState, iout=None):
-    super().__init__(state, iout)
+  def __init__(self, args: YOLOv5Args, state: train_state.TrainState, iout=None, use_bn=True):
+    super().__init__(state, iout, args.image_shape)
     self.args = args
+    self.use_bn = use_bn
 
   @partial(jax.jit, static_argnums=0)
   def predict(self, state: train_state.TrainState, x: jnp.ndarray):
     logits, _ = state.apply_fn(
       {'params': state.params, 'batch_stats': state.batch_stats},
-      x, train=False, mutable=['batch_stats']
+      x, train=not self.use_bn, mutable=['batch_stats']
       # x, train=True, mutable=['batch_stats']  # Update: Must use train BN, if no freeze backbone BN statistic
     )
     y, batch_size = [], x.shape[0]
