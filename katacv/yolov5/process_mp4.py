@@ -88,7 +88,7 @@ def main(args):
 def parse_args():
   from katacv.utils.parser import cvt2Path
   parser = argparse.ArgumentParser()
-  parser.add_argument("--path-input-video", type=cvt2Path, default=Path("/home/yy/Videos/model_test/2.mp4"),
+  parser.add_argument("--path-input-video", type=cvt2Path, default=Path("/home/yy/Videos/model_test/1.mp4"),
     help="The path of the input video.")
   parser.add_argument("--path-output-video", type=cvt2Path, default=None,
     help="The path of the output video, default 'logs/processed_videos/fname_yolo.mp4'")
