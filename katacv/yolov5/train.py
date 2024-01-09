@@ -27,6 +27,8 @@ Fix bugs:
   2. Check paper https://arxiv.org/pdf/1906.07155.pdf section 5.2,\ 
     when use pretrain backbone model, we must freeze BN statistic in backbone model,\ 
     also we can use 2x learning rate.
+2024/1/9: Complete training from scratch (on RTX 4090): batch=32, nominal batch=64, val result:
+p: 0.488 r: 0.612 ap50: 0.559 ap75: 0.402 map: 0.379: 100%|██████████| 156/156 [01:28<00:00,  1.76it/s]
 '''
 import sys, os
 sys.path.append(os.getcwd())

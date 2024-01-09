@@ -78,7 +78,7 @@ def plot_box_PIL(
 
     font_color = (255,255,255)  # white
     font = ImageFont.truetype(fontpath, fontsize)
-    w_text, h_text= font.getsize(text)
+    w_text, h_text= font.getsize(text)  # pip install Pillow==9.5.0
     x_text = x_min
     y_text = y_min - h_text if y_min > h_text else y_min
     draw.rounded_rectangle([x_text, y_text, x_text+w_text, y_text+h_text], radius=1.5, fill=box_color)
@@ -237,7 +237,7 @@ def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format=
     box: The bounding boxes after NMS.  [shape=(max_num_box, 6)]
     pnum: The number of the predicted bounding boxes. [int]
   """
-  M = max_num_box * nms_multi  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
+  M = min(max_num_box * nms_multi, box.shape[0])  # BUG FIX: The M must bigger than max_num_box, since iou threshold will remove many boxes beside.
   sort_idxs = jnp.argsort(-box[:,4])[:M]  # only consider the first `max_num_box`
   box = box[sort_idxs]
   ious = iou_multiply(box[:,:4], box[:,:4], format=iou_format)

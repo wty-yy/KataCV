@@ -15,4 +15,5 @@ from functools import partial
 
 import os
 # https://jax.readthedocs.io/en/latest/gpu_memory_allocation.html
-os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '.97'
+# os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '.97'
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'  # allocate GPU memory as needed

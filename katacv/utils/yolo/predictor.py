@@ -137,7 +137,7 @@ class BasePredictor:
   @partial(jax.jit, static_argnums=[0,3,4,5])
   def pred_and_nms(
     self, state: train_state.TrainState, x: jax.Array,
-    iou_threshold: float, conf_threshold: float, nms_multi: int
+    iou_threshold: float, conf_threshold: float, nms_multi: float = 30
   ):
     pbox = self.predict(state, x)
     pbox = self.pred_bounding_check(pbox)
@@ -146,7 +146,7 @@ class BasePredictor:
     )(pbox, iou_threshold, conf_threshold, nms_multi)
     return pbox, pnum
   
-  @partial(jax.jit, static_argnums=0)
+  @partial(jax.jit, static_argnums=[0,3,4])
   def pred_and_nms_and_tp(
     self, state: train_state.TrainState, x: jax.Array,
     iou_threshold: float, conf_threshold: float,
