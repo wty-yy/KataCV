@@ -141,6 +141,9 @@ class BasePredictor:
   ):
     pbox = self.predict(state, x)
     pbox = self.pred_bounding_check(pbox)
+    # pbox, pnum = jax.vmap(
+    #   nms, in_axes=[0, None, None, None], out_axes=0
+    # )(pbox, iou_threshold, conf_threshold, nms_multi)
     pbox, pnum = jax.vmap(
       nms, in_axes=[0, None, None, None], out_axes=0
     )(pbox, iou_threshold, conf_threshold, nms_multi)

@@ -221,7 +221,7 @@ def nms_boxes_and_mask_old(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num
     return boxes, mask
 
 @partial(jax.jit, static_argnums=[3,4,5])
-def nms_old(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='iou', nms_multi=30):
+def nms(box, iou_threshold=0.3, conf_threshold=0.2, nms_multi=30, max_num_box=100, iou_format='iou'):
   """
   Compute the predicted bounding boxes and the number of bounding boxes.
   
@@ -247,10 +247,10 @@ def nms_old(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_for
   pnum = (idx != -1).sum()
   return dbox, pnum
 
-@partial(jax.jit, static_argnums=[5])
-def nms(pbox, iou_thre=0.65, conf_thre=0.001, max_box=300, max_size=30000, iou_format='iou'):
+@partial(jax.jit, static_argnums=[3,4,5])
+def nms_bad(pbox, iou_thre=0.65, conf_thre=0.001, max_box=300, max_size=3000, iou_format='iou'):
   """
-  (JAX) Compute the predicted bounding boxes and the number of bounding boxes.
+  (JAX) Compute the predicted bounding boxes and the number of bounding boxes. (too slow)
   
   Args:
     box: The predicted result by the model.  [shape=(N,6), elem=(x,y,w,h,conf,cls)]

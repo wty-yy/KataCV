@@ -16,7 +16,7 @@ from katacv.yolov5.parser import get_args_and_writer
 def parse_args():
     from katacv.utils.parser import argparse, cvt2Path
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=cvt2Path, default="/home/wty/Coding/models/YOLOv5/YOLOv5_b32_stopD-0127",  # change
+    parser.add_argument("--path", type=cvt2Path, default="/home/yy/Coding/models/YOLOv5/YOLOv5_b32_scratch_stopD-0300",  # change
         help="the original model weights path")
     return parser.parse_args()
 
