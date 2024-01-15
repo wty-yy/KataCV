@@ -99,7 +99,7 @@ def transform_pad(img, target_shape):
   img = np.pad(img, ((top, bottom), (left, right), (0, 0)), mode="constant", constant_values=114)
   return img, (top, left)
 
-def show_box(img, box, draw_center_point=False, verbose=True, format='yolo', video=False):
+def show_box(img, box, draw_center_point=False, verbose=True, format='yolo', video=False, drop_text=False):
   from katacv.utils.detection import plot_box_PIL, build_label2colors
   from katacv.utils.coco.constant import label2name
   img = img.copy()
@@ -116,7 +116,7 @@ def show_box(img, box, draw_center_point=False, verbose=True, format='yolo', vid
     label = int(b[label_idx])
     img = plot_box_PIL(
       img, b[:4],
-      text=f"{label2name[label]}{f' {conf:.3f}' if conf else ''}",
+      text=f"{label2name[label]}{f' {conf:.3f}' if conf else ''}" if not drop_text else "",
       box_color=label2color[label],
       format=format, draw_center_point=draw_center_point
     )

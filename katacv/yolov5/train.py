@@ -34,6 +34,7 @@ p: 0.488 r: 0.612 ap50: 0.559 ap75: 0.402 map: 0.379: 100%|███████
   YOLOv5: Total Parameters: 46,623,741 (186.5 MB)
 Add:
 1. Two different learning rate schedule for 'bias' and other weights.
+2. Add focus loss initialization, -log(pi) in `model.py`.
 Modify:
 1. Change decayed weights to optax, should be faster.
 '''
