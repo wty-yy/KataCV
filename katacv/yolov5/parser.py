@@ -26,6 +26,7 @@ class YOLOv5Args(CVArgs):
   steps_per_epoch: int
   learning_rate_final: float
   learning_rate_fn: Callable
+  learning_rate_bias_fn: Callable
   momentum: float
   coef_box: float
   coef_obj: float
@@ -94,7 +95,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   nbc = 64  # nominal batch size
   if args.accumulate:
     args.accumulate = max(round(nbc / args.batch_size), 1)
-    args.weight_decay *= 1 / args.accumulate
+    # args.weight_decay *= 1 / args.accumulate  # calculate weight decay at last (optax.add_decayed_weights)
     args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
   else:
     args.accumulate = 1
