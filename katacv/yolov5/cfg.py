@@ -1,13 +1,13 @@
 from pathlib import Path
 import jax.numpy as jnp
 
-path_darknet_weights = Path("/home/yy/Coding/models/YOLOv5/NewCSPDarkNet53-0050-lite")
+# path_darknet_weights = Path("/home/yy/Coding/models/YOLOv5/NewCSPDarkNet53-0050-lite")
+path_darknet_weights = None
 
 dataset_name = 'COCO'  # or 'PASCAL'
 # dataset_name = 'PASCAL VOC'  # or 'PASCAL'
 if dataset_name == 'COCO':
-  # path_dataset = Path("/home/wty/Coding/datasets/coco")
-  path_dataset = Path("/home/yy/Coding/datasets/coco")
+  path_dataset = Path("/data/user/wutianyang/dataset/coco")
   num_classes = 80
   train_ds_size = 118287
   # train_ds_size = 800  # sample test
@@ -36,10 +36,10 @@ anchors = jnp.array([
 
 ### Training ###
 if dataset_name == 'COCO':
-  batch_size = 32
+  batch_size = 16
   total_epochs = 300
 if dataset_name == 'PASCAL VOC':
-  batch_size = 32
+  batch_size = 16
   total_epochs = 100
 coef_box = 0.05
 coef_obj = 1.0

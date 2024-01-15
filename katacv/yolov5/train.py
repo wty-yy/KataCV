@@ -29,6 +29,13 @@ Fix bugs:
     also we can use 2x learning rate.
 2024/1/9: Complete training from scratch (on RTX 4090): batch=32, nominal batch=64, val result:
 p: 0.488 r: 0.612 ap50: 0.559 ap75: 0.402 map: 0.379: 100%|██████████| 156/156 [01:28<00:00,  1.76it/s]
+2024/1/15: Fix BUG:
+1. backbone stage size = [3,6,9,3] and CSP bottleneck channel is output_channel // 2
+  YOLOv5: Total Parameters: 46,623,741 (186.5 MB)
+Add:
+1. Two different learning rate schedule for 'bias' and other weights.
+Modify:
+1. Change decayed weights to optax, should be faster.
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -100,12 +107,13 @@ if __name__ == '__main__':
         bar.set_description(f"loss={metrics[0]:.4f}, lr={args.learning_rate_fn(state.step):.8f}")
         if global_step % args.write_tensorboard_freq == 0:
           logs.update(
-            ['SPS', 'SPS_avg', 'epoch', 'learning_rate'],
+            ['SPS', 'SPS_avg', 'epoch', 'learning_rate', 'learning_rate_bias'],
             [
               args.write_tensorboard_freq/logs.get_time_length(),
               global_step/(time.time()-start_time),
               epoch,
               args.learning_rate_fn(state.step),
+              args.learning_rate_bias_fn(state.step)
             ]
           )
           logs.writer_tensorboard(writer, global_step)
@@ -128,11 +136,12 @@ if __name__ == '__main__':
       logs.update(
         [
           'P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val',
-          'epoch', 'learning_rate'
+          'epoch', 'learning_rate', 'learning_rate_bias'
         ],
         [
           p50, r50, ap50, ap75, map,
-          epoch, args.learning_rate_fn(state.step)
+          epoch, args.learning_rate_fn(state.step),
+          args.learning_rate_bias_fn(state.step)
         ]
       )
       logs.writer_tensorboard(writer, global_step)
