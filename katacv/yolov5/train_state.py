@@ -1,14 +1,12 @@
-"""
-Update: Two different learning rate schedule for 'bias' and other weights.
-"""
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
+from flax import struct
 
 class TrainState(train_state.TrainState):
   batch_stats: dict
   grads: dict
   accumulate: int
   acc_count: int
-  tx_bias: optax.GradientTransformation
+  tx_bias: optax.GradientTransformation = struct.field(pytree_node=False)
 
 def apply_gradients(state: TrainState, grads: jnp.ndarray):
   def split(x, keep_bias=False):
@@ -27,7 +25,7 @@ def apply_gradients(state: TrainState, grads: jnp.ndarray):
   def merge(x, y):
     return jax.tree_map(lambda a, b: a + b, x, y)
   params = optax.apply_updates(params, merge(updates1, updates2))
-  opt_state = (merge(opt_state1[0], opt_state2[0]), opt_state1[1])
+  opt_state = (merge(opt_state1[0], opt_state2[0]), *opt_state1[1:])
   return state.replace(step=state.step+1, params=params, opt_state=opt_state)
 
 def zeros_grads(state: TrainState):

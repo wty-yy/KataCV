@@ -1,7 +1,8 @@
 from pathlib import Path
 import jax.numpy as jnp
 
-path_darknet_weights = Path("/home/yy/Coding/models/YOLOv5/NewCSPDarkNet53-0050-lite")
+# path_darknet_weights = Path("/home/yy/Coding/models/YOLOv5/NewCSPDarkNet53-0050-lite")
+path_darknet_weights = None
 
 dataset_name = 'COCO'  # or 'PASCAL'
 # dataset_name = 'PASCAL VOC'  # or 'PASCAL'
