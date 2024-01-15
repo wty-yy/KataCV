@@ -12,6 +12,8 @@ Origin CSP DarkNet53 (YOLOv4): 27,656,008 (110.6 MB)
 New CSP DarkNet53 (YOLOv5): 32,890,856 (131.6 MB)
 2023/12/05: Start training.
 2023/12/07: Complete training: 76.23%(top-1), 93.07%(top-5)
+2024/1/15: Fix BUG: backbone stage size = [3,6,9,3] and CSP bottleneck channel is output_channel // 2
+New CSP DarkNet53 (YOLOv5): Total Parameters: 25,014,248 (100.1 MB)
 '''
 import sys, os
 sys.path.append(os.getcwd())
@@ -59,7 +61,7 @@ class CSP(nn.Module):
   @nn.compact
   def __call__(self, x):
     neck = partial(BottleNeck, conv=self.conv, shortcut=self.shortcut)
-    n = x.shape[-1] // 2
+    n = self.output_channel // 2
     route = self.conv(filters=n, kernel=(1,1))(x)
     x = self.conv(filters=n, kernel=(1,1))(x)
     for _ in range(self.n_bottleneck):
@@ -72,7 +74,7 @@ class CSPDarkNet(nn.Module):
 
   @nn.compact
   def __call__(self, x, train: bool):
-    stage_size = [3, 6, 9, 6]
+    stage_size = [3, 6, 9, 3]
     norm = partial(nn.BatchNorm, use_running_average=not train)
     conv = partial(ConvBlock, norm=norm, act=self.act)
     csp = partial(CSP, conv=conv)

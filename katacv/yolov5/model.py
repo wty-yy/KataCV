@@ -8,6 +8,8 @@
 @Desc    : YOLOv5 model
 YOLOv4: Total Parameters: 64,407,901 (257.6 MB)
 YOLOv5: Total Parameters: 62,868,477 (251.5 MB)
+2024/1/15: Fix BUG: backbone stage size = [3,6,9,3] and CSP bottleneck channel is output_channel // 2
+YOLOv5: Total Parameters: 46,623,741 (186.5 MB)
 '''
 from katacv.utils.related_pkgs.utility import *
 from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
