@@ -149,6 +149,14 @@ def get_state(args: YOLOv5Args, use_init=True, verbose=False):
     accumulate=args.accumulate,
     acc_count=0
   )
+  for i in range(3):
+    s = 2 ** (i + 3)
+    bias = state.params['PANet_0'][f'ScalePredictor_{i}']['ConvBlock_0']['Conv_0']['bias']
+    bias = bias.reshape(3, -1)
+    bias = bias.at[:, 4].set(jnp.log(8 / (args.image_shape[0] / s) * (args.image_shape[1] / s)))  # assume 8 target boxes per image
+    bias = bias.at[:, 5:].set(jnp.log(0.6 / (args.num_classes - 1 + 1e-6)))  # the distribution for each class in dataset
+    bias = bias.reshape(-1)
+    state.params['PANet_0'][f'ScalePredictor_{i}']['ConvBlock_0']['Conv_0']['bias'] = bias
   state = zeros_grads(state)
   return state
 

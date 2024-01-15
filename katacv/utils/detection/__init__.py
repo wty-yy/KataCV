@@ -221,7 +221,7 @@ def nms_boxes_and_mask_old(boxes, iou_threshold=0.3, conf_threshold=0.2, max_num
     return boxes, mask
 
 @partial(jax.jit, static_argnums=[3,4,5])
-def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='iou', nms_multi=30):
+def nms_old(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format='iou', nms_multi=30):
   """
   Compute the predicted bounding boxes and the number of bounding boxes.
   
@@ -246,6 +246,52 @@ def nms(box, iou_threshold=0.3, conf_threshold=0.2, max_num_box=100, iou_format=
   dbox = box[idx]
   pnum = (idx != -1).sum()
   return dbox, pnum
+
+@partial(jax.jit, static_argnums=[5])
+def nms(pbox, iou_thre=0.65, conf_thre=0.001, max_box=300, max_size=30000, iou_format='iou'):
+  """
+  (JAX) Compute the predicted bounding boxes and the number of bounding boxes.
+  
+  Args:
+    box: The predicted result by the model.  [shape=(N,6), elem=(x,y,w,h,conf,cls)]
+    iou_thre: The IOU threshold of NMS.
+    conf_thre: The confidence threshold of NMS.
+    max_box: The maximum return number of the bounding boxes.
+    max_size: The maximum size of considering the predict boxes.
+    iou_format: The format of IOU is used in calculating IOU threshold.
+  
+  Return:
+    box: The bounding boxes after NMS.  [shape=(max_box, 6)]
+    pnum: The number of the predicted bounding boxes. [int]
+  """
+  pbox = pbox[jnp.argsort(-pbox[:,4])]
+  if pbox.shape[0] > max_size: pbox = pbox[:max_size]
+  keep = pbox[:,4] > conf_thre
+  identity = lambda x: x
+  def loop_i_fn(i, keep):
+    def loop_j_fn(j, keep):
+      def modify(keep):
+        return keep.at[j].set(False)
+      keep = jax.lax.cond(
+        keep[j],
+        lambda k: jax.lax.cond(
+            iou(pbox[i][:4], pbox[j][:4], format=iou_format)[0] > iou_thre,
+            modify, identity, k
+        ),
+        identity,
+        keep)
+      return keep
+    keep = jax.lax.cond(
+      keep[i],
+      lambda k: jax.lax.fori_loop(i+1, pbox.shape[0], loop_j_fn, k),
+      identity,
+      keep)
+    return keep
+  keep = jax.lax.fori_loop(0, pbox.shape[0], loop_i_fn, keep)
+  idx = jnp.argwhere(keep, size=max_box, fill_value=-1)[:,0]
+  pbox = pbox[idx]
+  pnum = (idx != -1).sum()
+  return pbox, pnum
 
 # def nms(boxes, iou_threshold=0.3, conf_threshold=0.2):
 #     """

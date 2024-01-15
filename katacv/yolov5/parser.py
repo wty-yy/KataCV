@@ -85,7 +85,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
     help="the coef of the classification loss")
   parser.add_argument("--accumulate", type=str2bool, default=True,
     help="if taggled, accumulate the loss to nominal batch size 64.")
-  parser.add_argument("--use-cosine-decay", type=str2bool, default=True,
+  parser.add_argument("--use-cosine-decay", type=str2bool, default=False,
     help="if taggled, cosine learning rate decay will be used, else use the linear learning rate decay.")
   args = parser.get_args(input_args)
   # args.steps_per_epoch = cfg.train_ds_size // args.batch_size
@@ -96,6 +96,7 @@ def get_args_and_writer(no_writer=False, input_args=None) -> Tuple[YOLOv5Args, S
   if args.accumulate:
     args.accumulate = max(round(nbc / args.batch_size), 1)
     # args.weight_decay *= 1 / args.accumulate  # calculate weight decay at last (optax.add_decayed_weights)
+    args.weight_decay *= args.accumulate * args.batch_size / nbc
     args.steps_per_epoch = cfg.train_ds_size // (args.accumulate * args.batch_size)
   else:
     args.accumulate = 1
