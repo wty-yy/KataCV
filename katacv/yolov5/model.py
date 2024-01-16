@@ -38,7 +38,8 @@ class ScalePredictor(nn.Module):
   def __call__(self, x):
     x = self.conv(filters=3*(5+self.num_classes), kernel=(1,1), use_norm=False, use_act=False)(x)
     # Shape: [N, 3, H, W, 5 + num_classes]
-    return x.reshape((x.shape[0], 3, *x.shape[1:3], 5 + self.num_classes))
+    # return x.reshape((x.shape[0], 3, *x.shape[1:3], 5 + self.num_classes))  # BUG: Should reshape then transpose
+    return x.reshape((*x.shape[:3], 3, 5 + self.num_classes)).transpose((0, 3, 1, 2, 4))
 
 class PANet(nn.Module):  # Path Aggregation Network
   num_classes: int
