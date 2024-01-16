@@ -148,7 +148,8 @@ def get_state(args: YOLOv5Args, use_init=True, verbose=False):
     batch_stats=variables.get('batch_stats'),
     grads=variables.get('params'),
     accumulate=args.accumulate,
-    acc_count=0
+    acc_count=0,
+    ema=variables
   )
   for i in range(3):
     s = 2 ** (i + 3)

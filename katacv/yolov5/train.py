@@ -37,6 +37,10 @@ Add:
 2. Add focus loss initialization, -log(pi) in `model.py`.
 Modify:
 1. Change decayed weights to optax, should be faster.
+2024/1/16: FIX BUG:
+1. Detection model output predict, `ScalePredictor` should not reshape logits directly
+  that will make wrong dimension exapand. (First reshape then transpose!)
+  This change makes training mush faster (x10 epoch).
 '''
 import sys, os
 sys.path.append(os.getcwd())

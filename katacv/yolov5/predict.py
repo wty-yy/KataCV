@@ -2,18 +2,20 @@ from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from katacv.utils.yolo.predictor import BasePredictor
 from katacv.yolov5.loss import cell2pixel
 from katacv.yolov5.parser import YOLOv5Args
+from katacv.yolov5.train_state import TrainState
 
 class Predictor(BasePredictor):
   
-  def __init__(self, args: YOLOv5Args, state: train_state.TrainState, iout=None, use_bn=True):
+  def __init__(self, args: YOLOv5Args, state: TrainState, iout=None, use_bn=True):
     super().__init__(state, iout, args.image_shape)
     self.args = args
     self.use_bn = use_bn
 
   @partial(jax.jit, static_argnums=0)
-  def predict(self, state: train_state.TrainState, x: jnp.ndarray):
+  def predict(self, state: TrainState, x: jnp.ndarray):
     logits, _ = state.apply_fn(
-      {'params': state.params, 'batch_stats': state.batch_stats},
+      # {'params': state.params, 'batch_stats': state.batch_stats},
+      {'params': state.ema['params'], 'batch_stats': state.ema['batch_stats']},  # use EMA
       x, train=not self.use_bn, mutable=['batch_stats']
       # x, train=True, mutable=['batch_stats']  # Update: Must use train BN, if no freeze backbone BN statistic
     )

@@ -2,11 +2,12 @@ from katacv.utils.related_pkgs.jax_flax_optax_orbax import *
 from flax import struct
 
 class TrainState(train_state.TrainState):
-  batch_stats: dict
-  grads: dict
+  batch_stats: dict = struct.field(pytree_node=True)
+  grads: dict = struct.field(pytree_node=True)
   accumulate: int
   acc_count: int
   tx_bias: optax.GradientTransformation = struct.field(pytree_node=False)
+  ema: dict = struct.field(pytree_node=True)  # {'params': ..., 'batch_stats': ...}
 
 def apply_gradients(state: TrainState, grads: jnp.ndarray):
   def split(x, keep_bias=False):
@@ -34,10 +35,20 @@ def zeros_grads(state: TrainState):
   )
   return state
 
+def update_ema(state: TrainState):
+  # decay = d0*(1-e^(-t/tau)), check: https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
+  decay = 0.9999 * (1 - jnp.exp(-state.step / 2000))
+  update = lambda ema, weights: jax.tree_map(lambda e, w: decay * e + (1-decay) * w, ema, weights)
+  ema = state.ema
+  new_ema = {'params': update(ema['params'], state.params), 'batch_stats': update(ema['batch_stats'], state.batch_stats)}
+  state = state.replace(ema=new_ema)
+  return state
+
 def update_grads(state: TrainState):
   # state = state.apply_gradients(grads=state.grads)
   state = apply_gradients(state, state.grads)
   state = zeros_grads(state)
+  state = update_ema(state)
   return state
 
 def accumulate_grads(state: TrainState, grads: dict):
