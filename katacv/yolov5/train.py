@@ -41,6 +41,8 @@ Modify:
 1. Detection model output predict, `ScalePredictor` should not reshape logits directly
   that will make wrong dimension exapand. (First reshape then transpose!)
   This change makes training mush faster (x10 epoch).
+Add:
+1. Add EMA(Exponential Moving Average): `d0 * (1 - exp(-t / tau))`, `t` is the update times.
 '''
 import sys, os
 sys.path.append(os.getcwd())
