@@ -150,7 +150,7 @@ def cell2pixel(xy, scale):
   init_shape = xy.shape
   h, w = xy.shape[-3:-1]
   if xy.ndim != 4: xy = xy.reshape(-1, h, w, 2)
-  dx, dy = [jnp.repeat(x[None,...], xy.shape[0], 0) for x in jnp.meshgrid(jnp.arange(h), jnp.arange(w))]
+  dx, dy = [jnp.repeat(x[None,...], xy.shape[0], 0) for x in jnp.meshgrid(jnp.arange(w), jnp.arange(h))]
   xy = jnp.stack([(xy[...,0]+dx)*scale, (xy[...,1]+dy)*scale], -1)
   return xy.reshape(*init_shape)
 
