@@ -43,6 +43,9 @@ Modify:
   This change makes training mush faster (x10 epoch).
 Add:
 1. Add EMA(Exponential Moving Average): `d0 * (1 - exp(-t / tau))`, `t` is the update times.
+2024/1/17: FIX BUG:
+1. Fix `compute_tp` for different iou thresholds, old is based 50 iou threshold,
+  that will cause AP metrics smaller.
 '''
 import sys, os
 sys.path.append(os.getcwd())
