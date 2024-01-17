@@ -11,10 +11,10 @@ import numpy as np
 
 def load_model_state():
   from katacv.yolov5.parser import get_args_and_writer
-  state_args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv5_b32_scratch_stopD --load-id 300 --batch-size 1".split())
+  state_args = get_args_and_writer(no_writer=True, input_args="--model-name YOLOv5_b32_v0116_ema --load-id 39 --batch-size 1".split())
 
   from katacv.yolov5.model import get_state
-  state = get_state(state_args, use_init=False)
+  state = get_state(state_args)
 
   from katacv.utils.model_weights import load_weights
   state = load_weights(state, state_args)
@@ -42,7 +42,7 @@ def main(args):
     w = jnp.r_[w, w, 1, 1].reshape(1,1,6)
     x = jnp.array(x)[None, ...] / 255.
     x = jax.image.resize(x, (1,*state_args.image_shape), method='bilinear')
-    pbox, pnum = predictor.pred_and_nms(state, x, iou_threshold=0.6, conf_threshold=0.4, nms_multi=30)
+    pbox, pnum = predictor.pred_and_nms(state, x, iou_threshold=0.6, conf_threshold=0.4, nms_multi=10)
     pbox = pbox * w
     return pbox[0], pnum[0]
   
@@ -88,7 +88,7 @@ def main(args):
 def parse_args():
   from katacv.utils.parser import cvt2Path
   parser = argparse.ArgumentParser()
-  parser.add_argument("--path-input-video", type=cvt2Path, default=Path("/home/yy/Videos/model_test/1.mp4"),
+  parser.add_argument("--path-input-video", type=cvt2Path, default=Path("/home/yy/Videos/model_test/3.mp4"),
     help="The path of the input video.")
   parser.add_argument("--path-output-video", type=cvt2Path, default=None,
     help="The path of the output video, default 'logs/processed_videos/fname_yolo.mp4'")
@@ -97,7 +97,7 @@ def parse_args():
     fname = args.path_input_video.name
     suffix = fname.split('.')[-1]
     fname = fname[:-len(suffix)-1]
-    args.path_output_video = args.path_input_video.parent.joinpath(fname + "_yolov5_300" + '.' + suffix)
+    args.path_output_video = args.path_input_video.parent.joinpath(fname + "_yolov5_fix_39" + '.' + suffix)
   return args
 
 if __name__ == '__main__':

@@ -175,6 +175,7 @@ def iou(
     ) ** 2
     alpha = jax.lax.stop_gradient(v / (1 - result_iou + v))  # must use stop gradient !
     S = jax.lax.stop_gradient(result_iou >= 0.5)  # https://arxiv.org/pdf/2005.03572.pdf
+    # S = 1
     result_ciou = result_diou - S * alpha * v
     if format == 'ciou': ret = result_ciou
     if keepdim: ret = ret[...,None]
