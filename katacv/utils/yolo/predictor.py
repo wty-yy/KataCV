@@ -184,8 +184,7 @@ class BasePredictor:
     tp = jnp.zeros((pbox.shape[0],iout.shape[0]), jnp.bool_)
     def solve(tp):  # If tnum > 0
       ious = iou_multiply(pbox[:,:4], tbox[:,:4])  # shape=(N,M)
-      # bel = jnp.zeros((pbox.shape[0],))  # calculate belong for each iou threshold
-      bel = jnp.zeros_like(tp, dtype=jnp.int32)
+      bel = jnp.zeros_like(tp, dtype=jnp.int32)  # calculate belong for each iou threshold
       # Get tp and belong
       def loop_i_fn(i, value):  # i=0,...,pnum-1
         tp, bel = value
@@ -197,7 +196,7 @@ class BasePredictor:
         return tp, bel
       tp, bel = jax.lax.fori_loop(0, pnum, loop_i_fn, (tp, bel))
       # Remove duplicate belong
-      # bel = jnp.where(tp.sum(1) > 0, bel, -1)  # tp.sum(1) means use 50iou to remove other duplicate, but we should consider independently
+      # bel = jnp.where(tp.sum(1) > 0, bel, -1)  # WRONG: tp.sum(1) means use 50iou to remove other duplicate, but we should consider independently
       bel = jnp.where(tp, bel, -1)
       mask = jnp.zeros_like(bel, jnp.bool_)
       def loop_j_fn(j, mask):  # j=0,...,tnum-1
