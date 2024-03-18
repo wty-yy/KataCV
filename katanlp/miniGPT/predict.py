@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parents[2]))
 from katanlp.miniGPT.miniGPT import GPT, GPTConfig, TrainConfig
 from katanlp.miniGPT.train import parse_args
 from katanlp.miniGPT.dataset import TextDatasetBuilder
