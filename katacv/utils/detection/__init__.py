@@ -161,7 +161,8 @@ def iou(
     outer_h = jnp.maximum(max1[...,0],max2[...,0]) - jnp.minimum(min1[...,0],min2[...,0])
     outer_w = jnp.maximum(max1[...,1],max2[...,1]) - jnp.minimum(min1[...,1],min2[...,1])
     center_dist = ((box1[...,:2]-box2[...,:2])**2).sum(-1)
-    diagonal_dist = jax.lax.stop_gradient(outer_h**2 + outer_w**2)  # Update (2023/12/29): Stop diagonal gradient.
+    # diagonal_dist = jax.lax.stop_gradient(outer_h**2 + outer_w**2)  # Update (2023/12/29): Stop diagonal gradient.
+    diagonal_dist = outer_h**2 + outer_w**2  # Update (2023/12/29): Stop diagonal gradient.
     result_diou = result_iou - center_dist / (diagonal_dist + EPS)  # DIOU
     if format == 'diou':
         ret = result_diou
@@ -174,6 +175,7 @@ def iou(
     ) ** 2
     alpha = jax.lax.stop_gradient(v / (1 - result_iou + v))  # must use stop gradient !
     S = jax.lax.stop_gradient(result_iou >= 0.5)  # https://arxiv.org/pdf/2005.03572.pdf
+    # S = 1
     result_ciou = result_diou - S * alpha * v
     if format == 'ciou': ret = result_ciou
     if keepdim: ret = ret[...,None]

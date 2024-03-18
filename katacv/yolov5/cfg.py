@@ -7,8 +7,7 @@ path_darknet_weights = None
 dataset_name = 'COCO'  # or 'PASCAL'
 # dataset_name = 'PASCAL VOC'  # or 'PASCAL'
 if dataset_name == 'COCO':
-  # path_dataset = Path("/home/wty/Coding/datasets/coco")
-  path_dataset = Path("/home/yy/Coding/datasets/coco")
+  path_dataset = Path("/data/user/wutianyang/dataset/coco")
   num_classes = 80
   train_ds_size = 118287
   # train_ds_size = 800  # sample test

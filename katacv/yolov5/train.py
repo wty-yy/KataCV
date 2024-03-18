@@ -96,7 +96,7 @@ if __name__ == '__main__':
   compute_loss = ComputeLoss(args)
 
   ### Train and evaluate ###
-  start_time, global_step = time.time(), 0
+  start_time, global_step, best_map = time.time(), 0, 0
   if args.train:
     # for epoch in range(state.step//len(train_ds)+1, args.total_epochs+1):
     for epoch in range(args.load_id+1, args.total_epochs+1):
@@ -142,7 +142,6 @@ if __name__ == '__main__':
       p50, r50, ap50, ap75, map = predictor.p_r_ap50_ap75_map()
       for name, val in zip(['P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val'], [p50, r50, ap50, ap75, map]):
         print(f"{name}={val:.4f}", end=' ')
-      print()
       logs.update(
         [
           'P@50_val', 'R@50_val', 'AP@50_val', 'AP@75_val', 'mAP_val',
@@ -160,4 +159,13 @@ if __name__ == '__main__':
       ### Save weights ###
       if epoch % args.save_weights_freq == 0:
         save_weight(state)
+
+      ### Save best mAP model
+      if map > best_map:
+        best_map = map
+        import shutil
+        shutil.copy(save_weight.path_save, save_weight.path_save.with_name("best"))
+        with save_weight.path_save.with_name("best.log").open("a") as file:
+          file.write(f"Best checkpoints: {epoch} epochs, {map:.4f} mAP, {time.strftime('%Y%m%D-%H%M%S')}\n")
+      print(f"mAP(Best)={best_map:.4f}")
   writer.close()

@@ -196,7 +196,7 @@ class BasePredictor:
           tp = tp.at[i].set((iou[j].round(2) >= iout - 1e-5) & (j < tnum))
           bel = bel.at[i].set(j)
           return tp, bel
-        tp, bel = jax.lax.cond(tbox[:,4]==pbox[i,5], update, lambda x: x, (tp, bel))
+        tp, bel = jax.lax.cond(tbox[j,4]==pbox[i,5], update, lambda x: x, (tp, bel))
         return tp, bel
       tp, bel = jax.lax.fori_loop(0, pnum, loop_i_fn, (tp, bel))
       # Remove duplicate belong
