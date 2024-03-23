@@ -42,6 +42,7 @@ class TrainConfig(MainCLS):
   batch_size = 128
   betas = (0.9, 0.95)  # Adamw beta1, beta2
   warmup_tokens = 128*128*256  # 375e6
+  grad_norm_clip = 1.0
   lr_fn: Callable
 
   def __init__(self, steps_per_epoch, n_token, **kwargs):
@@ -83,7 +84,7 @@ class AttentionBlock(nn.Module):
     x = x + nn.Dropout(self.cfg.p_drop_resid)(z, deterministic=not train)
     z = nn.Sequential([
       nn.LayerNorm(),
-      nn.Dense(4*self.cfg.n_embd), nn.selu,
+      nn.Dense(4*self.cfg.n_embd), nn.gelu,
       nn.Dense(self.cfg.n_embd),
     ])(x)
     x = x + nn.Dropout(self.cfg.p_drop_resid)(z, deterministic=not train)
@@ -135,7 +136,10 @@ class GPT(nn.Module):  # For Text
       apply_fn=self.apply,
       params=variables['params'],
       # AdamW is Adam with weight decay
-      tx=optax.adamw(train_cfg.lr_fn, train_cfg.betas[0], train_cfg.betas[1], weight_decay=train_cfg.weight_decay, mask=decay_mask),
+      tx=optax.chain(
+        optax.clip_by_global_norm(train_cfg.grad_norm_clip),
+        optax.adamw(train_cfg.lr_fn, train_cfg.betas[0], train_cfg.betas[1], weight_decay=train_cfg.weight_decay, mask=decay_mask),
+      ),
       dropout_rng=rng,
     )
     if load_path is not None:
@@ -179,7 +183,8 @@ if __name__ == '__main__':
   # n_len = 90  # 86,662,120
   n_embd = 768
   n_head = 12
-  gpt_cfg = GPTConfig(n_vocab, n_len, n_embd=n_embd, n_head=n_head)
+  n_block = 12
+  gpt_cfg = GPTConfig(n_vocab, n_len, n_embd=n_embd, n_head=n_head, n_block=n_block)
   gpt = GPT(gpt_cfg)
   # rng = jax.random.PRNGKey(42)
   # x = jax.random.randint(rng, (batch_size, n_len), 0, 6)
