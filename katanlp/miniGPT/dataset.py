@@ -3,16 +3,23 @@ import numpy as np
 import jax, jax.numpy as jnp
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
+import re
+txt_convert = {
+  'minus one enter': lambda text: re.sub(r'\n+', lambda match: '\n' * (len(match.group(0)) - 1), text)
+}
 
 class TextDatasetBuilder:
-  def __init__(self, path_dataset, val_ratio = 0.2, seed = 42, n_divide = 100):
+  def __init__(self, path_dataset, val_ratio = 0.2, seed = 42, n_divide = 100, cvt_format=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
     text = ""
     paths = Path(path_dataset).glob('*.txt')
+    assert Path(path_dataset).exists(), f"Can't find dataset {path_dataset}"
     for p in paths:
       with p.open('r') as file:
         text += file.read()
+    if cvt_format:
+      text = txt_convert[cvt_format](text)
     chars = sorted(list(set(text)))
     self.n_vocab = len(chars)
     self.idx2char = dict(enumerate(chars))
@@ -55,7 +62,8 @@ class TextDataset(Dataset):
     return x, y
 
 if __name__ == '__main__':
-  ds_builder = TextDatasetBuilder(path_dataset=Path("/home/yy/Coding/datasets/china_offical_documents"))
+  ds_builder = TextDatasetBuilder(path_dataset=Path("/home/yy/Coding/datasets/china_offical_documents"), cvt_format='minus one enter')
+  # ds_builder = TextDatasetBuilder(path_dataset=Path("/home/yy/Coding/datasets/china_offical_documents"), cvt_format=None)
   print(f"{ds_builder.data['train'].shape=}, {ds_builder.data['val'].shape=}")
   print("Train data (first 100)")
   print(ds_builder.decode(jax.device_get(ds_builder.data['train'][:100])))
@@ -71,4 +79,4 @@ if __name__ == '__main__':
     print(ds_builder.decode(x[0]))
     print("Target")
     print(ds_builder.decode(y[0]))
-    break
+    input()# break

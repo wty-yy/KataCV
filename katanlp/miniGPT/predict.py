@@ -22,7 +22,7 @@ class Predictor:
     params, args = load_info['params'], load_info['config']
     self.n_token = args['n_token']
     self.rng = jax.random.PRNGKey(args['seed'])
-    self.ds_builder = TextDatasetBuilder()
+    self.ds_builder = TextDatasetBuilder(args['path_dataset'])
     train_cfg = TrainConfig(steps_per_epoch=1e9, **args)
     self.gpt = GPT(cfg=GPTConfig(**args))
     self.gpt.create_fns()
