@@ -70,7 +70,7 @@ logs = Logs(
 def train():
   args, writer = parse_args()
   ### Dataset ###
-  ds_builder = TextDatasetBuilder(path_dataset=args.path_dataset, val_ratio=0.2, seed=args.seed, n_divide=100)
+  ds_builder = TextDatasetBuilder(path_dataset=args.path_dataset, val_ratio=0.2, seed=args.seed, n_divide=100, cvt_format='minus one enter')
   train_ds = ds_builder.get_dataset('train', batch_size=args.batch_size, n_token=args.n_token, datasize=args.train_datasize)
   val_ds = ds_builder.get_dataset('val', batch_size=args.batch_size, n_token=args.n_token, datasize=args.val_datasize)
   args.n_vocab = ds_builder.n_vocab
