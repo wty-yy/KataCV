@@ -11,6 +11,9 @@ from pathlib import Path
 import time
 from katacv.utils.parser import str2bool
 from katacv.utils.logs import Logs, MeanMetric
+path_root = Path(__file__).parents[2]
+
+# Train cmd: python katanlp/miniGPT/train.py --path-dataset /home/yy/Coding/datasets/china_offical_documents --total-epoch 20 --n-embd 768 --n-head 12 --n-block 12 --train-datasize 262114 --val-datasize 16384
 
 def parse_args(input_args=None, with_writer=True) -> tuple[argparse.Namespace, SummaryWriter]:
   parser = argparse.ArgumentParser()
@@ -26,9 +29,9 @@ def parse_args(input_args=None, with_writer=True) -> tuple[argparse.Namespace, S
   parser.add_argument("--wandb", type=str2bool, default=False, const=True, nargs='?')
   parser.add_argument("--train-datasize", type=int, default=512*128)
   parser.add_argument("--val-datasize", type=int, default=32*128)
+  parser.add_argument("--path-dataset", type=str, default=path_root.joinpath("katanlp/demo_data"))
   args = parser.parse_args(input_args)
   args.lr = args.learning_rate
-  path_root = Path(__file__).parents[2]
   args.run_name = f"{args.name}__{args.seed}__{time.strftime(r'%Y%m%d_%H%M%S')}"
   path_logs = path_root / "logs" / args.run_name
   path_logs.mkdir(parents=True, exist_ok=True)
@@ -67,7 +70,7 @@ logs = Logs(
 def train():
   args, writer = parse_args()
   ### Dataset ###
-  ds_builder = TextDatasetBuilder(val_ratio=0.2, seed=args.seed, n_divide=100)
+  ds_builder = TextDatasetBuilder(path_dataset=args.path_dataset, val_ratio=0.2, seed=args.seed, n_divide=100)
   train_ds = ds_builder.get_dataset('train', batch_size=args.batch_size, n_token=args.n_token, datasize=args.train_datasize)
   val_ds = ds_builder.get_dataset('val', batch_size=args.batch_size, n_token=args.n_token, datasize=args.val_datasize)
   args.n_vocab = ds_builder.n_vocab

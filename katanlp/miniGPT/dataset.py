@@ -3,15 +3,13 @@ import numpy as np
 import jax, jax.numpy as jnp
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
-path_root = Path(__file__).parents[2]
-path_dataset = path_root / "katanlp/demo_data"
 
 class TextDatasetBuilder:
-  def __init__(self, val_ratio = 0.2, seed = 42, n_divide = 100):
+  def __init__(self, path_dataset, val_ratio = 0.2, seed = 42, n_divide = 100):
     np.random.seed(seed)
     torch.manual_seed(seed)
     text = ""
-    paths = path_dataset.glob('*.txt')
+    paths = Path(path_dataset).glob('*.txt')
     for p in paths:
       with p.open('r') as file:
         text += file.read()
@@ -57,7 +55,7 @@ class TextDataset(Dataset):
     return x, y
 
 if __name__ == '__main__':
-  ds_builder = TextDatasetBuilder()
+  ds_builder = TextDatasetBuilder(path_dataset=Path("/home/yy/Coding/datasets/china_offical_documents"))
   print(f"{ds_builder.data['train'].shape=}, {ds_builder.data['val'].shape=}")
   print("Train data (first 100)")
   print(ds_builder.decode(jax.device_get(ds_builder.data['train'][:100])))
