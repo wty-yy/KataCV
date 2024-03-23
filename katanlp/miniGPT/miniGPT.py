@@ -3,7 +3,7 @@ import flax.linen as nn
 import flax, optax
 import numpy as np
 from flax.training import train_state
-from typing import Callable
+from typing import Callable, Sequence
 
 class TrainState(train_state.TrainState):
   dropout_rng: jax.Array
@@ -56,12 +56,12 @@ class CausalSelfAttention(nn.Module):
   p_drop_attn: float
 
   @nn.compact
-  def __call__(self, x: jnp.ndarray, train: bool, mask_len: int = None):
+  def __call__(self, x: jnp.ndarray, train: bool, mask_len: Sequence[int] = None):
     D = self.n_embd // self.n_head  # hidden dim
     B, L, _ = x.shape  # Bachsize, token length, embedding dim
-    mask = jnp.tri(L)  # Only consider previous token values
+    mask = jnp.expand_dims(jnp.tri(L), (0, 1))  # Only consider previous token values
     if mask_len is not None:
-      mask = jnp.where(jnp.arange(L).reshape(L, 1) >= mask_len, 0, mask)
+      mask = jnp.where(jnp.arange(L).reshape(1, 1, L, 1).repeat(B, 0) >= mask_len.reshape(B, 1, 1, 1), 0, mask)
     x = nn.Dense(3 * self.n_embd)(x)
     q, k, v = jnp.array_split(x.reshape(B, L, self.n_head, -1).transpose(0, 2, 1, 3), 3, -1)
     attn = q @ jnp.swapaxes(k, -1, -2) / jnp.sqrt(D)
@@ -76,7 +76,7 @@ class AttentionBlock(nn.Module):
   cfg: GPTConfig
 
   @nn.compact
-  def __call__(self, x: jnp.ndarray, train: bool, mask_len: int = None):
+  def __call__(self, x: jnp.ndarray, train: bool, mask_len: Sequence[int] = None):
     attn_cfg = {key: getattr(self.cfg, key) for key in ['n_embd', 'n_head', 'p_drop_attn']}
     z = nn.LayerNorm()(x)
     z = CausalSelfAttention(**attn_cfg)(z, train, mask_len)
@@ -93,7 +93,7 @@ class GPT(nn.Module):  # For Text
   cfg: GPTConfig
 
   @nn.compact  # x: (B, L, Nv)
-  def __call__(self, x: jnp.ndarray, train: bool, mask_len: int = None):
+  def __call__(self, x: jnp.ndarray, train: bool, mask_len: Sequence[int] = None):
     cfg = self.cfg
     pos_embd = self.param('pos_embd', lambda _, shape: jnp.zeros(shape), (1, cfg.n_token, cfg.n_embd))
     x = pos_embd + nn.Embed(cfg.n_vocab, cfg.n_embd)(x)  # (B, L, Ne)
@@ -159,7 +159,7 @@ class GPT(nn.Module):  # For Text
       return state, (loss, acc)
     self.model_step = jax.jit(model_step, static_argnames='train')
 
-    def predict(state: TrainState, x: jnp.ndarray, rng: jax.Array, mask_len: int = None):
+    def predict(state: TrainState, x: jnp.ndarray, rng: jax.Array, mask_len: Sequence[int] = None):
       logits = state.apply_fn({'params': state.params}, x, train=False, mask_len=mask_len)
       if mask_len is not None:
         logits = logits[jnp.arange(logits.shape[0]), mask_len-1, :]  # (B, n_vocab)
@@ -174,12 +174,13 @@ class GPT(nn.Module):  # For Text
   
 if __name__ == '__main__':
   batch_size = 128
-  n_vocab = 1000
-  n_len = 128  # 86,691,304
-  # n_len = 90  # 86,662,120
-  n_embd = 768
-  n_head = 12
-  gpt_cfg = GPTConfig(n_vocab, n_len, n_embd=n_embd, n_head=n_head)
+  n_vocab = 4  # 1000
+  # n_len = 128  # 86,691,304
+  n_token = 90  # 86,662,120
+  n_embd = 128  # 768
+  n_head = 8  # 12
+  n_block = 6  # 12
+  gpt_cfg = GPTConfig(n_vocab, n_token, n_embd=n_embd, n_head=n_head, n_block=n_block)
   gpt = GPT(gpt_cfg)
   # rng = jax.random.PRNGKey(42)
   # x = jax.random.randint(rng, (batch_size, n_len), 0, 6)

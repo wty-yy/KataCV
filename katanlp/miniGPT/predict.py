@@ -10,8 +10,9 @@ import jax
 
 # Under log path
 # weights_path = "MiniGPT__0__20240316_222541/weights_10.ckpt"
-weights_path = "/home/yy/Coding/GitHub/KataCV/logs/MiniGPT__0__20240317_191903/ckpt"
-load_step = 10
+# weights_path = "/home/yy/Coding/GitHub/KataCV/logs/MiniGPT__0__20240317_191903/ckpt"
+weights_path = "/home/yy/Coding/GitHub/KataCV/logs/MiniGPT__CN_documents/ckpt"
+load_step = 5
 
 class Predictor:
   def __init__(self):
