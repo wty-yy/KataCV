@@ -23,6 +23,8 @@
 | --------- | -------- | ---------------------------------- | ---- |  ----|
 | YOLOv1   | VOC PASCAL    | OK (val-mAP: 0.53, coco-mAP: 0.28)    | JAX  | [Paper](https://arxiv.org/pdf/1506.02640.pdf)/[Blog](https://wty-yy.github.io/posts/1018/) |
 | YOLOv3   | VOC PASCAL <br/> COCO    | OK (PASCAL: val-mAP: 0.66, coco-mAP: 0.39 <br/> COCO: val-mAP: 0.42, coco-mAP: 0.25)    | JAX  | [Paper](https://arxiv.org/pdf/1804.02767.pdf)/[Blog](https://wty-yy.github.io/posts/50137/) |
+| YOLOv4 | COCO | Wrong Network Struct                                         | JAX | [Paper](https://arxiv.org/abs/2004.10934)/[Blog](https://wty-yy.xyz/posts/40875/) |
+| YOLOv5 | COCO | OK (COCO: coco-mAP: 44.64%) | JAX | [Offical](https://github.com/ultralytics/yolov5)/[Blog](https://wty-yy.xyz/posts/10056/) |
 
 ## OCR
 
